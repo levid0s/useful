@@ -46,9 +46,11 @@ Useful for example, for adding the current folder to the path.
 
 ```powershell
 Add-UserPath .
+
+Add-UserPath c:\tools\scripts
 ```
 
-## ccd.ps1
+## [ccd.ps1](scripts/ccd.ps1)
 
 A replacement for the `cd` command in certain cases.
 
@@ -58,7 +60,7 @@ Handy when you're in a deep directory structure, so you don't have to do many `d
 
 After chaning the location, you can go back to the previous path with `popd` (The script uses `Push-Location` in the background.)
 
-```
+```powershell
 ccd
 # do stuff..
 popd
@@ -67,7 +69,7 @@ popd
 ![ccd.ps1](res/ccd.png)
 
 
-## code..cmd / code..sh
+## [code..cmd](scripts/code..cmd) / [code..sh](scripts/code..sh)
 
 Launches VS Code in the current folder when you mistyped `code.` instead of `code .`
 
@@ -75,23 +77,19 @@ Launches VS Code in the current folder when you mistyped `code.` instead of `cod
 code.
 ```
 
-## ConEmu.cmd
+## [ConEmu.cmd](scripts/ConEmu.cmd)
 
 Opens a ConEmu shell in the current folder, or the specified directory. (Similar to `code .`)
 
-```
+```powershell
 ConEmu
 
-# - or -
-
 ConEmu .
-
-# - or -
 
 ConEmu /src/MyProject
 ```
 
-## gRefreshToken.ps1
+## [gRefreshToken.ps1](scripts/gRefreshToken.ps1)
 
 Generates a fresh GCP OAUTH token and drops it in the current git repo's root, as `token.secret`
 
@@ -101,7 +99,7 @@ It's a convention that I use in my projects.
 gRefreshToken
 ```
 
-## k.cmd
+## [k.cmd](scripts/k.cmd)
 
 Kubectl alias for Windows.
 
@@ -109,19 +107,17 @@ Kubectl alias for Windows.
 k get pods
 ```
 
-## ll.cmd
+## [ll.cmd](scripts/ll.cmd)
 
 `ls -l` alias for Windows.
 
 ```powershell
 ll
 
-# - or -
-
 ll /
 ```
 
-## mk.cmd
+## [mk.cmd](scripts/mk.cmd)
 
 `minikube` + `minikube kubectl` alias for Windows.
 
@@ -134,7 +130,7 @@ mk start
 mk get pods
 ```
 
-## Refresh-Path.ps1
+## [Refresh-Path.ps1](scripts/Refresh-Path.ps1)
 
 Refresh `$env:PATH` in the current shell to whatever is set in Registry.
 
@@ -144,7 +140,7 @@ Useful when new apps have been installed, and you don't want to close your exist
 Refresh-Path
 ```
 
-## Toggle-TarkMode.ps1
+## [Toggle-TarkMode.ps1](scripts/Toggle-DarkMode.ps1)
 
 Toggles Windows 10's Dark Mode.
 
@@ -152,16 +148,16 @@ Toggles Windows 10's Dark Mode.
 Toggle-TarkMode
 ```
 
-## watch.cmd
+## [watch.cmd](scripts/watch.cmd)
 
 `watch` alias for Windows.
+
 Set `%DELAY%` for a custom delay, default is 3 seconds.
 
 ```powershell
 set DELAY=5
 watch dir c:\
 ```
-
 
 # Useful/Regs
 
