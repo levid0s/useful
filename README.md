@@ -1,8 +1,9 @@
 # Useful/Control-WinApps
 
 A very neat script that I found on [github.com/sergueik/powershell_selenium](https://github.com/sergueik/powershell_selenium/blob/master/powershell/button_selenium.ps1).
-It implements the following Windows classes:
-`WinAPI`, `Win32WindowEvents`, and some UI elements, such as `Win32Window`, `Win32CheckBox`, `Win32Label`, `Win32ListBox`, `Win32TextBox`, `Win32Button`.
+
+It implements the following Windows classes: `WinAPI`, `Win32WindowEvents`, and some UI elements, such as `Win32Window`, `Win32CheckBox`, `Win32Label`, `Win32ListBox`, `Win32TextBox`, `Win32Button`.
+
 `WinAPI` and `Win32WindowEvents` are particularly useful, because they enable interation with other Windows applications, directly from PowerShell, using the Windows API.
 
 Usage:
@@ -16,9 +17,9 @@ $window.Hwnd
 # Useful/PS-WinHelpers
 
 A collection of useful PowerShell functions and classes that I use in my scripts, such as:
-* Wrappers around built-in PowerShell functions, for making them more efficient. (eg. the Registry functions)
-* Others are re-implementaitons of PowerShell DSC functionality, which is, regrettably, suprisingly unsuable on Desktops because DSC requires admin to run, etc. (eg. Install-Font, New-Shortcut, etc.)
-* Other useful tools like logger, check for admin, etc.
+* Wrappers around built-in PowerShell functions, for making them more efficient. (eg. the registry functions)
+* Others are re-implementaitons of PowerShell DSC functionality (eg. `Install-Font`, `New-Shortcut`, etc.). Desired State Configuration is, regrettably, suprisingly unsuable on desktops, because it requires admin to run and needs the user's credentials.
+* Other useful functions like logger, checking for admin rights, etc.
 
 Categories:
 * PowerShell Scripting
@@ -40,16 +41,19 @@ Useful scripts that I always like to have around, preferably in `$PATH`.
 A replacement for the `cd` command in certain cases.
 
 It opens a Windows Forms folder picker, and changes the current directory to whatever you select.
-Handy when you're in a deep directory structure, so you don't have to do many `dir`s and `cd`s.
-After chaning the location, you can go back to the previous path with `popd` (The script uses `Push-Location` in the background.)
 
-### Usage:
+Handy when you're in a deep directory structure, so you don't have to do many `dir`s and `cd`s.
+
+After chaning the location, you can go back to the previous path with `popd` (The script uses `Push-Location` in the background.)
 
 ```
 ccd
 ...
 popd
 ```
+
+![ccd.ps1](res/ccd.png)
+
 
 ## code..cmd / code..sh
 
