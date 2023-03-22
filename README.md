@@ -21,7 +21,7 @@ A collection of useful PowerShell functions and classes that I use in my scripts
 * Others are re-implementaitons of PowerShell DSC functionality (eg. `Install-Font`, `New-Shortcut`, etc.). Desired State Configuration is, regrettably, suprisingly unsuable on desktops, because it requires admin to run and needs the user's credentials.
 * Other useful functions like logger, checking for admin rights, etc.
 
-Categories:
+### Categories:
 * PowerShell Scripting
 * Registry manipulation
 * Scheduled Tasks
@@ -36,6 +36,18 @@ Categories:
 # Useful/Scripts
 Useful scripts that I always like to have around, preferably in `$PATH`.
 
+## Add-UserPath.ps1
+
+Adds a path to the current user's `%PATH%` environment variable.
+
+Relative path will be resolved before adding.
+
+Useful for example, for adding the current folder to the path.
+
+```powershell
+Add-UserPath .
+```
+
 ## ccd.ps1
 
 A replacement for the `cd` command in certain cases.
@@ -48,7 +60,7 @@ After chaning the location, you can go back to the previous path with `popd` (Th
 
 ```
 ccd
-...
+# do stuff..
 popd
 ```
 
@@ -59,37 +71,31 @@ popd
 
 Launches VS Code in the current folder when you mistyped `code.` instead of `code .`
 
-### Usage:
-
 ```powershell
 code.
 ```
 
 ## ConEmu.cmd
 
-Opens a ConEmu shell in the current folder, or the specified directory.
-Similar to `code .`
-
-### Usage:
+Opens a ConEmu shell in the current folder, or the specified directory. (Similar to `code .`)
 
 ```
 ConEmu
 
-- or -
+# - or -
 
 ConEmu .
 
-- or -
+# - or -
 
 ConEmu /src/MyProject
 ```
 
 ## gRefreshToken.ps1
 
-Generates a fresh auth token and drops it in the root of the git repo as `token.secret`
-It's a convention that I use in my projects.
+Generates a fresh GCP OAUTH token and drops it in the current git repo's root, as `token.secret`
 
-### Usage:
+It's a convention that I use in my projects.
 
 ```powershell
 gRefreshToken
@@ -99,8 +105,6 @@ gRefreshToken
 
 Kubectl alias for Windows.
 
-### Usage:
-
 ```powershell
 k get pods
 ```
@@ -109,12 +113,10 @@ k get pods
 
 `ls -l` alias for Windows.
 
-### Usage:
-
 ```powershell
 ll
 
-- or -
+# - or -
 
 ll /
 ```
@@ -122,12 +124,10 @@ ll /
 ## mk.cmd
 
 `minikube` + `minikube kubectl` alias for Windows.
-Checks if the first parameter is specific to minikube, then runs `minikube %*`.
-Otherwise it assumes it's a kubectl command, and runs `minikube kubectl -- %*`.
 
-set DIRECT_COMMANDS=:
+If the first parameter is specific to `minikube`, it will run `minikube %*`.
 
-### Usage:
+Otherwise, it assumes it's a `kubectl` command, and runs `minikube kubectl -- %*`.
 
 ```powershell
 mk start
@@ -137,9 +137,8 @@ mk get pods
 ## Refresh-Path.ps1
 
 Refresh `$env:PATH` in the current shell to whatever is set in Registry.
-Useful when new apps were installed and you don't want to close your existing shells.
 
-### Usage:
+Useful when new apps have been installed, and you don't want to close your existing shells.
 
 ```powershell
 Refresh-Path
@@ -148,8 +147,6 @@ Refresh-Path
 ## Toggle-TarkMode.ps1
 
 Toggles Windows 10's Dark Mode.
-
-### Usage:
 
 ```powershell
 Toggle-TarkMode
@@ -160,13 +157,10 @@ Toggle-TarkMode
 `watch` alias for Windows.
 Set `%DELAY%` for a custom delay, default is 3 seconds.
 
-### Usage:
-
 ```powershell
 set DELAY=5
 watch dir c:\
 ```
-
 
 
 # Useful/Regs
