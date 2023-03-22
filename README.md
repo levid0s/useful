@@ -1,4 +1,4 @@
-# Useful/Control-WinApps
+# Useful/[Control-WinApps](control-winapps/Control-WinApps.ps1)
 
 A very neat script that I found on [github.com/sergueik/powershell_selenium](https://github.com/sergueik/powershell_selenium/blob/master/powershell/button_selenium.ps1).
 
@@ -36,7 +36,7 @@ A collection of useful PowerShell functions and classes that I use in my scripts
 # Useful/Scripts
 Useful scripts that I always like to have around, preferably in `$PATH`.
 
-## Add-UserPath.ps1
+## [Add-UserPath.ps1](scripts/Add-UserPath.ps1)
 
 Adds a path to the current user's `%PATH%` environment variable.
 
