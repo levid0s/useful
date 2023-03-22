@@ -4,7 +4,7 @@ A very neat script that I found on [github.com/sergueik/powershell_selenium](htt
 
 It implements the following Windows classes: `WinAPI`, `Win32WindowEvents`, and some UI elements, such as `Win32Window`, `Win32CheckBox`, `Win32Label`, `Win32ListBox`, `Win32TextBox`, `Win32Button`.
 
-`WinAPI` and `Win32WindowEvents` are particularly useful, because they enable interation with other Windows applications, directly from PowerShell, using the Windows API.
+`WinAPI` and `Win32WindowEvents` are particularly useful, because they enable interaction with other Windows applications, directly from PowerShell, using the Windows API.
 
 Usage:
 
@@ -14,7 +14,7 @@ $window = [System.Windows.Win32Window]::FromProcessName("explorer")
 $window.Hwnd
 ```
 
-# Useful/PS-WinHelpers
+# Useful/[PS-WinHelpers](ps-winhelpers/_PS-WinHelpers.ps1)
 
 A collection of useful PowerShell functions and classes that I use in my scripts, such as:
 * Wrappers around built-in PowerShell functions, for making them more efficient. (eg. the registry functions)
