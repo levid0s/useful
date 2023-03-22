@@ -30,8 +30,6 @@ set ABSPATH=%STARTDIR%
 GOTO Run
 
 :Run
-:: ConEmuPortable.exe -Dir 'C:\Program Files\Windows Defender\' -run "{Shells::PowerShellHere}"
-
 %CONEMUPATH% -Dir "%ABSPATH%" -run "{Shells::PowerShellHere}"
 
 :: RESOURCES:

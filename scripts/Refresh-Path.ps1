@@ -1,3 +1,11 @@
+<#PSScriptInfo
+.VERSION      2023.03.22
+.AUTHOR       Levente Rog
+.COPYRIGHT    (c) 2023 Levente Rog
+.LICENSEURI   https://github.com/levid0s/useful/blob/master/LICENSE.md
+.PROJECTURI   https://github.com/levid0s/useful/
+#>
+
 <#
 .SYNOPSIS
 Refresh the %PATH% in current shell to whatever is set in the Registry.

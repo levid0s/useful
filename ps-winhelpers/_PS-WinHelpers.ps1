@@ -1,3 +1,11 @@
+<#PSScriptInfo
+.VERSION      2023.03.22
+.AUTHOR       Levente Rog
+.COPYRIGHT    (c) 2023 Levente Rog
+.LICENSEURI   https://github.com/levid0s/useful/blob/master/LICENSE.md
+.PROJECTURI   https://github.com/levid0s/useful/
+#>
+
 <#
 .SYNOPSIS
 A collection of PowerShell functions for common tasks.

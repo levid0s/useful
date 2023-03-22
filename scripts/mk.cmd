@@ -1,3 +1,5 @@
+:: Minikube alias for Windows
+
 @echo off
 set DIRECT_COMMANDS=:addons:cache:completion:config:dashboard:delete:docker-env:image:ip:kubectl:mount:node:options:pause:podman-env:profile:service:ssh:ssh-host:ssh-key:start:status:stop:tunnel:unpause:update-check:update-context:version:
 

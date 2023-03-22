@@ -1,3 +1,5 @@
+:: Watch alias for Windows
+
 @echo off
 IF NOT DEFINED DELAY (
   SET "myDELAY=3"
