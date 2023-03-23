@@ -28,7 +28,7 @@ A collection of useful PowerShell functions and classes that I use in my scripts
 | IsAdmin                          | Returns true if the current user is an administrator.                                  |
 | Invoke-ToAdmin                   | Restarts the current script as administrator                                           |
 | Install-ModuleIfNotPresent       | Installs a module if it's not already installed.                                       |
-| Get-ScriptPath                   | Returns the path of the current script. (not fully working)                            |
+| Get-ScriptPath                   | Returns the path of the current script.                                                |
 | Write-DebugLog                   | Writes a message to the debug log, detects function name and stack depth automatically |
 | Start-SleepOrKey                 | Sleeps for the specified amount of time, or until a key is pressed.                    |
 | Get-RegValue                     | Reads a value from the registry.                                                       |

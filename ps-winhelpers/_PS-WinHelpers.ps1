@@ -95,11 +95,6 @@ function Get-ScriptPath {
 
   .EXAMPLE
   Write-Host "Script path: $(Get-ScriptPath)"
-
-  .TODO
-  - Not working as a fucntion.
-  Need to dig out the script path from the call stack. (Get-PSCallStack)
-
   #>
 
   return (Get-PSCallStack)[1].ScriptName | Split-Path -Parent
