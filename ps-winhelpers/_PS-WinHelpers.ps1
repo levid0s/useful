@@ -58,8 +58,8 @@ function Invoke-ToAdmin {
 
   Write-Information "Elevating script to Admin.."
 
-  $ScriptPath = $MyInvocation.MyCommand.Source
-  $ScriptDir = (Get-Location).Path
+  $ScriptPath = (Get-PSCallStack)[1].ScriptName
+  $ScriptDir = (Get-PSCallStack)[1].ScriptName | Split-Path -Parent
   Write-Debug "ScriptPath: $ScriptPath"
   Write-Debug "ScriptDir: $ScriptDir"
 
@@ -102,7 +102,7 @@ function Get-ScriptPath {
 
   #>
 
-  return $MyInvocation.MyCommand.Source
+  return (Get-PSCallStack)[1].ScriptName | Split-Path -Parent
 }
 
 function Write-DebugLog {
@@ -265,7 +265,7 @@ function Set-RegValue {
   param(
     [string]$FullPath,
     [string[]]$Value,
-    [ValidateSet('String', 'ExpandString', 'Binary', 'DWord', 'MultiString', 'QWord', 'REG_SZ', 'REG_EXPAND_SZ', 'REG_BINARY', 'REG_DWORD', 'REG_MULTI_SZ', 'REG_QWORD')][string]$Type,
+    [Parameter(Mandatory = $true)][ValidateSet('String', 'ExpandString', 'Binary', 'DWord', 'MultiString', 'QWord', 'REG_SZ', 'REG_EXPAND_SZ', 'REG_BINARY', 'REG_DWORD', 'REG_MULTI_SZ', 'REG_QWORD')][string]$Type,
     [switch]$Force
   )
   
