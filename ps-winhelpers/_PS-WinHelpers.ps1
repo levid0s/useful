@@ -151,6 +151,8 @@ function Write-DebugLog {
 
 function Start-SleepOrKey {
   <#
+  .VERSION 20230322
+
   .SYNOPSIS
   Similar to Start-Sleep, but sleep is cancelled on any keypress.
 
@@ -178,6 +180,37 @@ function Start-SleepOrKey {
     }
     Start-Sleep -Milliseconds 100  # Wait for 100 milliseconds before checking again
   }
+}
+
+function Start-SleepOrCondition {
+  <#
+  .VERSION 20230329
+
+  .SYNOPSIS
+  Function to pause execution until a condition is met or a timeout is reached.
+  Condition is considered met if the scriptblock returns a value that is not $null or $false.
+  Function returns the result of Condition, so it can be used in variable assignment.
+
+  .EXAMPLE
+  $result = Start-SleepOrCondition -Condition { Get-Process -Name "notepad" } -Seconds 10
+
+  #>
+
+  param(
+    [ScriptBlock]$Condition,
+    [int]$Seconds = 5
+  )
+  $startTime = Get-Date
+  $result = & $Condition
+  while (!(((Get-Date) - $startTime) -gt [TimeSpan]::FromSeconds($Seconds) -or $result)) {
+    Start-Sleep -Milliseconds 300
+    $result = & $Condition
+  }
+  return $result
+}
+
+Function Get-Timestamp {
+  return Get-Date -Format "yyyyMMdd-HHmmss"
 }
 
 ###
@@ -314,6 +347,8 @@ function Set-RegValue {
 
 function Register-PowerShellScheduledTask {
   <#
+  .VERSION 20230330
+
   .SYNOPSIS
   Registers a PowerShell script as a **Hidden** Scheduled Task.
   At the moment the schedule frequency is hardcoded to every 15 minutes.
@@ -340,15 +375,42 @@ function Register-PowerShellScheduledTask {
   .PARAMETER Uninstall
   Unregister the Scheduled Task.
 
-  .TODO
-  - Add support for custom schedule times and frequencies
+  .PARAMETER ExecutionTimeLimit
+  The maximum amount of time the task is allowed to run.
+  New-TimeSpan -Hours 72
+  New-TimeSpan -Minutes 15
+  New-TimeSpan -Seconds 30
+  New-TimeSpan -Seconds 0 = Means disabled
+
+  .PARAMETER AsAdmin
+  Run the Scheduled Task as administrator.
+
+  .PARAMETER GroupId
+  The Scheduled Task will be registered under this group in the Task Scheduler.
+  Eg: "BUILTIN\Administrators"
+
+  .PARAMETER TimeInterval
+  The Scheduled Task will be run every X minutes.
+
+  .PARAMETER AtLogon
+  The Scheduled Task will be run at user logon.
+
+  .PARAMETER AtStartup
+  The Scheduled Task will be run at system startup. Requires admin rights.
   #>
 
   param(
     [Parameter(Mandatory = $true)]$ScriptPath,
     [hashtable]$Parameters = @{},
     [string]$TaskName,
-    [bool]$AllowRunningOnBatteries = $true,
+    [bool]$AllowRunningOnBatteries,
+    [switch]$DisallowHardTerminate,
+    [TimeSpan]$ExecutionTimeLimit,
+    [int]$TimeInterval,
+    [switch]$AtLogon,
+    [switch]$AtStartup,
+    [string]$GroupId,
+    [switch]$AsAdmin,
     [switch]$Uninstall
   )
 
@@ -370,7 +432,12 @@ function Register-PowerShellScheduledTask {
 
   # Create wrapper vbs script so we can run the PowerShell script as hidden
   # https://github.com/PowerShell/PowerShell/issues/3028
-  $vbsPath = "$env:LOCALAPPDATA\PsScheduledTasks\$TaskName.vbs"
+  if ($GroupId) {
+    $vbsPath = "$env:ALLUSERSPROFILE\PsScheduledTasks\$TaskName.vbs"
+  }
+  else {
+    $vbsPath = "$env:LOCALAPPDATA\PsScheduledTasks\$TaskName.vbs"
+  }
   $vbsDir = Split-Path $vbsPath -Parent
 
   if (!(Test-Path $vbsDir)) {
@@ -389,42 +456,75 @@ shell.Run command, 0, true
 
   Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue -OutVariable TaskExists
   if ($TaskExists.State -eq 'Running') {
+    Write-Debug "Stopping task for update: $TaskName"
     $TaskExists | Stop-ScheduledTask
   }
   $action = New-ScheduledTaskAction -Execute $vbsPath
   
-  ## Schedule 
-  $t1 = New-ScheduledTaskTrigger -Daily -At 00:05
-  $t2 = New-ScheduledTaskTrigger -Once -At 00:05 `
-    -RepetitionInterval (New-TimeSpan -Minutes 15) `
-    -RepetitionDuration (New-TimeSpan -Hours 23 -Minutes 55)
-  $t1.Repetition = $t2.Repetition
-    
-
-  ## Settings 
-  if ($AllowRunningOnBatteries) {
-    $BatteriesParams = switch ($AllowRunningOnBatteries) {
-      $false { @{} }
-      $true {
-        @{
-          "AllowStartIfOnBatteries"    = $null;
-          "DontStopIfGoingOnBatteries" = $null
-        } 
-      }
-    }
+  ## Schedule
+  $triggers = @()
+  if ($TimeInterval) {
+    $t1 = New-ScheduledTaskTrigger -Daily -At 00:05
+    $t2 = New-ScheduledTaskTrigger -Once -At 00:05 `
+      -RepetitionInterval (New-TimeSpan -Minutes $TimeInterval) `
+      -RepetitionDuration (New-TimeSpan -Hours 23 -Minutes 55)
+    $t1.Repetition = $t2.Repetition
+    $t1.Repetition.StopAtDurationEnd = $false
+    $triggers += $t1
   }
+  if ($AtLogOn) {
+    $triggers += New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+  }
+  if ($AtStartUp) {
+    $triggers += New-ScheduledTaskTrigger -AtStartup
+  }
+    
+  ## Additional Options
+  $AdditionalOptions = @{}
+
+  if ($AsAdmin) {
+    $AdditionalOptions.RunLevel = 'Highest'
+  }
+
+  if ($GroupId) {
+    $STPrin = New-ScheduledTaskPrincipal -GroupId $GroupId
+    $AdditionalOptions.Principal = $STPrin
+  }
+  
+  ## Settings 
+  $AdditionalSettings = @{}
+
+  if ($AllowRunningOnBatteries -eq $true) {
+    $AdditionalSettings.AllowStartIfOnBatteries = $true
+    $AdditionalSettings.DontStopIfGoingOnBatteries = $true
+  }
+  elseif ($AllowRunningOnBatteries -eq $false) {
+    $AdditionalSettings.AllowStartIfOnBatteries = $false
+    $AdditionalSettings.DontStopIfGoingOnBatteries = $false
+  }
+
+  if ($DisallowHardTerminate) {
+    $AdditionalSettings.DisallowHardTerminate = $true
+  }
+
+  if ($ExecutionTimeLimit) {
+    $AdditionalSettings.ExecutionTimeLimit = $ExecutionTimeLimit
+  }
+
 
   $STSet = New-ScheduledTaskSettingsSet `
     -MultipleInstances IgnoreNew `
-    @BatteriesParams
+    @AdditionalSettings
 
   ## Decide if Register or Update
   if (!$TaskExists) {
-    Register-ScheduledTask -Action $action -Trigger $t1 -TaskName $TaskName -Description "Scheduled Task for running $ScriptPath" -Settings $STSet
+    $cim = Register-ScheduledTask -Action $action -Trigger $triggers -TaskName $TaskName -Description "Scheduled Task for running $ScriptPath" -Settings $STSet @AdditionalOptions
   }
   else {
-    Set-ScheduledTask -TaskName $TaskName -Action $action -Trigger $t1 -Settings $STSet
+    $cim = Set-ScheduledTask -TaskName $TaskName -Action $action -Trigger $triggers -Settings $STSet @AdditionalOptions
   }
+  
+  return $cim
 }
 
 
