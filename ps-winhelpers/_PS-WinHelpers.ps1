@@ -182,9 +182,9 @@ function Start-SleepOrKey {
   }
 }
 
-function Start-SleepOrCondition {
+function Start-SleepUntilTrue {
   <#
-  .VERSION 20230329
+  .VERSION 20230330
 
   .SYNOPSIS
   Function to pause execution until a condition is met or a timeout is reached.
@@ -192,7 +192,7 @@ function Start-SleepOrCondition {
   Function returns the result of Condition, so it can be used in variable assignment.
 
   .EXAMPLE
-  $result = Start-SleepOrCondition -Condition { Get-Process -Name "notepad" } -Seconds 10
+  $result = Start-SleepUntilTrue -Condition { Get-Process -Name "notepad" } -Seconds 10
 
   #>
 
@@ -207,6 +207,62 @@ function Start-SleepOrCondition {
     $result = & $Condition
   }
   return $result
+}
+
+Function Get-SubstedPaths {
+  <#
+  .VERSION 20230406
+
+  .SYNOPSIS
+  Get a Hashtable of the currently Substed drives
+
+  .EXAMPLE
+  Get-SubstedPaths
+
+  Name    Value
+  ----    -----
+  M:      D:\Dropbox\Music
+  N:      D:\Dropbox
+  
+  #>
+
+  $SubstOut = $(subst)
+  $SubstedPaths = @{}
+  $SubstOut | ForEach-Object { 
+    $SubstedPaths[($_ -Split '\\: => ')[0]] = ($_ -Split '\\: => ')[1]
+  }
+  return $SubstedPaths
+}
+
+Function Get-RealPath {
+  <#
+  .VERSION 20230406
+
+  .SYNOPSIS
+  Checks if the path is substed and returns the real path.
+  Otherwise returns the current path.
+
+  .EXAMPLE
+  Get-RealPath
+  Get-RealPath .
+  Get-RealPath n:\tools
+  #>
+
+  param(
+    [string]$Path
+  )
+  if ([string]::IsNullOrEmpty($Path)) {
+    $Path=$PWD.Path
+  }
+  $Path = (Resolve-Path $Path).Path
+  $SubstedPaths = Get-SubstedPaths
+  if ($SubstedPaths.Keys -contains $Path.Substring(0,2)) {
+    $RealPath = $SubstedPaths[$Path.Substring(0,2)] + $Path.Substring(2).TrimEnd('\')
+    return $RealPath
+  }
+  else {
+    return $Path.TrimEnd('\')
+  }
 }
 
 Function Get-Timestamp {
@@ -347,7 +403,7 @@ function Set-RegValue {
 
 function Register-PowerShellScheduledTask {
   <#
-  .VERSION 20230330
+  .VERSION 20230331
 
   .SYNOPSIS
   Registers a PowerShell script as a **Hidden** Scheduled Task.
@@ -420,6 +476,7 @@ function Register-PowerShellScheduledTask {
 
   ## Uninstall
   if ($Uninstall) {
+    Stop-ScheduledTask -TaskName $TaskName
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
     return
   }
@@ -1087,6 +1144,8 @@ function Install-Font {
 
 Function Get-DropboxInstallPath {
   <#
+  .VERSION 20230406
+
   .SYNOPSIS
   Get the Dropbox's "data" folder path for the current user
 

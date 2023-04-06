@@ -62,7 +62,7 @@ Describe "Test: Register Basic Scheduled Task" {
   }
 
   It "Process should be: RUNNING" {
-    $process = Get-WmiObject Win32_Process | Where-Object Commandline -like "*$(Split-Path $TaskScript -Leaf)*"
+    $process = Start-SleepUntilTrue { Get-WmiObject Win32_Process | Where-Object Commandline -like "*$(Split-Path $TaskScript -Leaf)*" }
     $process | Should Not BeNullOrEmpty
   }
 
@@ -86,7 +86,7 @@ Describe "Test: Register Basic Scheduled Task" {
   It "Should: update existing Scheduled Task correctly" {
     Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     Write-Debug "Waiting for Task to start up.."
-    $process = Start-SleepOrCondition { Get-WmiObject Win32_Process | Where-Object Commandline -like "*$ShortGUID-Initial*" }
+    $process = Start-SleepUntilTrue { Get-WmiObject Win32_Process | Where-Object Commandline -like "*$ShortGUID-Initial*" }
     $OldPSProcess = Get-Process -Id $process.processid
     $Parameters = @{arg1 = $Timestamp; arg2 = "$ShortGUID-Updated" }
     $cim = Register-PowerShellScheduledTask `
@@ -99,9 +99,9 @@ Describe "Test: Register Basic Scheduled Task" {
     $cim.TaskName | Should be "$TaskName"
     Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     Write-Debug "Waiting for new task to start.."
-    $process = Start-SleepOrCondition -Condition { Get-WmiObject Win32_Process | Where-Object Commandline -like "*$ShortGUID-Updated*" }
+    $process = Start-SleepUntilTrue -Condition { Get-WmiObject Win32_Process | Where-Object Commandline -like "*$ShortGUID-Updated*" }
     Write-Debug "Waiting for old task to stop.."
-    Start-SleepOrCondition -Condition { $OldPSProcess.HasExited } -Seconds 15 | Out-Null
+    Start-SleepUntilTrue -Condition { $OldPSProcess.HasExited } -Seconds 15 | Out-Null
     $OldPSProcess.HasExited | Should be $true
     $process | Should Not BeNullOrEmpty
   }
@@ -129,7 +129,7 @@ Describe "Test: Register Basic Scheduled Task" {
     $cimNew.Triggers | Where-Object { $_.CimClass.CimClassName -eq 'MSFT_TaskDailyTrigger' } | Should BeNullOrEmpty
     $cimNew.Triggers.Count | Should Be 1
   }
-  return
+
   It "Should: uninstall successfully" {
     Register-PowerShellScheduledTask `
       -ScriptPath $TaskScript `
@@ -138,5 +138,10 @@ Describe "Test: Register Basic Scheduled Task" {
 
     $cim = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     $cim | Should be $null
+  }
+
+  It "Process should be stopped after the uninstall" {
+    $process = Get-WmiObject Win32_Process | Where-Object Commandline -like "*$(Split-Path $TaskScript -Leaf)*"
+    $process | Should BeNullOrEmpty
   }
 }
