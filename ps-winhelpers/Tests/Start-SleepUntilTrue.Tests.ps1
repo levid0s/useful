@@ -17,7 +17,7 @@ Describe 'Test: Start-SleepUntilTrue' {
   
         # Wait until a child process of 'notepad' is started
         $result = Start-SleepUntilTrue -Condition { Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessID -eq $process.Id -and $_.Name -eq $testProcess } } -Seconds ($delaySec * 10)
-      }  
+      }
     }
 
     It 'Should start successfully <testProcess>' {
@@ -36,7 +36,7 @@ Describe 'Test: Start-SleepUntilTrue' {
     }
   }
 
-  Context 'Wait for timeout' {
+  Context 'Wait for timeout: object' {
     BeforeAll {
       $delaySec = 3
 
@@ -52,8 +52,45 @@ Describe 'Test: Start-SleepUntilTrue' {
       $time.TotalSeconds | Should -BeLessOrEqual ($delaySec + 1)
     }
 
-    It 'Result should be null on timeout' {
+    It 'Should return $null on timeout' {
       $result | Should -Be $Null
+    }
+  }
+
+  Context 'Wait for timeout: false' {
+    BeforeAll {
+      $delaySec = 1
+
+      $time = Measure-Command {
+        $result = Start-SleepUntilTrue -Condition { $false } -Seconds $delaySec
+      }
+    }
+
+    It 'Should wait <delaySec>s for timeout' {
+      $time.TotalSeconds | Should -BeGreaterOrEqual $delaySec
+      $time.TotalSeconds | Should -BeLessOrEqual ($delaySec + 1)
+    }
+
+    It 'Should return $false on timeout' {
+      $result | Should -Be $false
+    }
+  }
+
+  Context 'Bypass $true' {
+    BeforeAll {
+      $delaySec = 1
+
+      $time = Measure-Command {
+        $result = Start-SleepUntilTrue -Condition { $true } -Seconds $delaySec -Bypass $true
+      }
+    }
+
+    It 'Should bypass and return $true' {
+      $time.TotalMilliseconds | Should -BeLessThan 200
+    }
+
+    It 'Should return $true on bypass' {
+      $result | Should -Be $true
     }
   }
 

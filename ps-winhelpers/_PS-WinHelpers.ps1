@@ -190,7 +190,7 @@ function Start-SleepUntilTrue {
   Pause execution until a condition is met or a timeout is reache
   
   .DESCRIPTION
-  Condition is considered met when the scriptblock returns a value that is neither `$null` or `$false`.
+  The condition is considered met, once the scriptblock returns a value that is different from `$null` or `$false`.
   Function passes through the result of `{ Condition }`, so it can be used in a variable assignment.
 
   .EXAMPLE
@@ -543,9 +543,10 @@ function Register-PowerShellScheduledTask {
 
   ## Uninstall
   if ($Uninstall) {
-    Stop-ScheduledTask -TaskName $TaskName
+    Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-    return
+    # Return $true if no tasks found, otherwise $false
+    return !(Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue)
   }
 
   ## Install
