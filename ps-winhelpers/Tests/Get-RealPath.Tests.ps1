@@ -1,30 +1,30 @@
 BeforeAll {
-  $DebugPreference = "Continue"
-  $InformationPreference = "Continue"
-  $VerbosePreference = "Continue"
+  $DebugPreference = 'Continue'
+  $InformationPreference = 'Continue'
+  $VerbosePreference = 'Continue'
 
-  . N:\src\useful\ps-winhelpers\_PS-WinHelpers.ps1
+  . "$PSScriptRoot\..\..\ps-winhelpers\_PS-WinHelpers.ps1"
 }
 
-Describe "Test: Get-RealPath" {
+Describe 'Test: Get-RealPath' {
   
-  Context "Substed path" {
+  Context 'Substed path' {
 
     BeforeAll {
       Write-Debug "TestDrive is: $TestDrive"
-      $SubstDrive='o:'
+      $SubstDrive = 'o:'
 
-      if(Test-Path $SubstDrive) {
-        Throw "Test drive already exists. TBC - find a free drive."
+      if (Test-Path $SubstDrive) {
+        Throw 'Test drive already exists. TBC - find a free drive.'
       }
       subst $SubstDrive $TestDrive
-      if(!(Test-Path $SubstDrive)) {
+      if (!(Test-Path $SubstDrive)) {
         Throw "Substing $SubstDrive to $TestDrive failed."
       }
       Set-Location $SubstDrive
     }
 
-    It "No parameters" {
+    It 'No parameters' {
       $result = Get-RealPath
       $result | Should -Be $TestDrive
     }
@@ -34,12 +34,12 @@ Describe "Test: Get-RealPath" {
       $result | Should -Be $TestDrive
     } 
 
-    It "Dot path: ." {
+    It 'Dot path: .' {
       $result = Get-RealPath .
       $result | Should -Be $TestDrive
     }
 
-    It "Dot path subfolder: .\subfolder" {
+    It 'Dot path subfolder: .\subfolder' {
       $TestFolder = Get-Random
       New-Item -Path "$PWD\$TestFolder" -Type Directory
       $result = Get-RealPath "./$TestFolder"
@@ -47,24 +47,24 @@ Describe "Test: Get-RealPath" {
       Remove-Item -Recurse -Force "$PWD\$TestFolder"
     }
 
-    It "Absolut Drive:" {
+    It 'Absolut Drive:' {
       $result = Get-RealPath "$SubstDrive"
       $result | Should -Be $TestDrive
     }
 
-    It "Absolut Drive:\" {
+    It 'Absolut Drive:\' {
       $result = Get-RealPath "$SubstDrive\"
       $result | Should -Be $TestDrive
     }
 
-    It "Absolute path subfolder" {
+    It 'Absolute path subfolder' {
       $TestFolder = Get-Random
       New-Item -Path "$SubstDrive\$TestFolder" -Type Directory
       $result = Get-RealPath "$SubstDrive\$TestFolder"
       $result | Should -Be "$TestDrive\$TestFolder"
     }
 
-    It "Absolute path: trailing slash removed" {
+    It 'Absolute path: trailing slash removed' {
       $TestFolder = Get-Random
       New-Item -Path "$SubstDrive\$TestFolder" -Type Directory      
       $result = Get-RealPath "$SubstDrive\$TestFolder\"
@@ -76,14 +76,14 @@ Describe "Test: Get-RealPath" {
     }
   }
 
-  Context "Real path" {
+  Context 'Real path' {
 
     BeforeAll {
       $RealPath = "$env:SystemRoot"
       Set-Location $RealPath
     }
 
-    It "No parameters" {
+    It 'No parameters' {
       $result = Get-RealPath
       $result | Should -Be $RealPath
     }
@@ -93,22 +93,22 @@ Describe "Test: Get-RealPath" {
       $result | Should -Be $RealPath
     } 
 
-    It "Dot path: ." {
+    It 'Dot path: .' {
       $result = Get-RealPath .
       $result | Should -Be $RealPath
     }
 
-    It "Dot path subfolder: .\System32" {
-      $result = Get-RealPath ".\System32"
+    It 'Dot path subfolder: .\System32' {
+      $result = Get-RealPath '.\System32'
       $result | Should -Be "$RealPath\System32" 
     }
 
-    It "Absolute path: <RealPath>\System32" {
+    It 'Absolute path: <RealPath>\System32' {
       $result = Get-RealPath "$RealPath\System32"
       $result | Should -Be "$RealPath\System32" 
     }
 
-    It "Trailing slash removed: <RealPath>\System32\" {
+    It 'Trailing slash removed: <RealPath>\System32\' {
       $result = Get-RealPath "$RealPath\System32\"
       $result | Should -Be "$RealPath\System32"
     }

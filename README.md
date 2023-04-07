@@ -31,6 +31,10 @@ A collection of useful PowerShell functions and classes that I use in my scripts
 | Get-ScriptPath                   | Returns the path of the current script.                                                |
 | Write-DebugLog                   | Writes a message to the debug log, detects function name and stack depth automatically |
 | Start-SleepOrKey                 | Sleeps for the specified amount of time, or until a key is pressed.                    |
+| Start-SleepUntilTrue             | Pause execution until a condition is met or a timeout is reached.                      |
+| Get-SubstedPaths                 | Get a Hashtable of the currently Substed drives                                        |
+| Get-RealPath                     | Returns the real path of a file or folder if the current path is on a substed drive    |
+| Get-Timestamp                    | Returns a timestamp string in the format "yyyyMMdd-HHmmss"                             |
 | Get-RegValue                     | Reads a value from the registry.                                                       |
 | Set-RegValue                     | Writes a value to the registry.                                                        |
 | Register-PowerShellScheduledTask | Registers a PowerShell script as a scheduled task.                                     |
@@ -93,6 +97,14 @@ Launches VS Code in the current folder when you mistyped `code.` instead of `cod
 code.
 ```
 
+## [code.ps1]
+
+Resolves the path of $args[0] if it's on a substed drive, so that Git Gutters will work properly.
+
+```powershell
+code .
+```
+
 ## [ConEmu.cmd](scripts/ConEmu.cmd)
 
 Opens a ConEmu shell in the current folder, or the specified directory. (Similar to `code .`)
@@ -107,7 +119,7 @@ ConEmu /src/MyProject
 
 ## [gRefreshToken.ps1](scripts/gRefreshToken.ps1)
 
-Generates a fresh GCP OAUTH token and drops it in the current git repo's root, as `token.secret`
+Generates a fresh GCP OAUTH token and drops it in the current git repo's root as `token.secret`
 
 It's a convention that I use in my projects.
 

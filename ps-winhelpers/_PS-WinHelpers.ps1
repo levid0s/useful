@@ -49,14 +49,14 @@ function Invoke-ToAdmin {
   }
   #>
 
-  If (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")) {
-    Write-DebugLog "Already admin, nothing to do."
+  If (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
+    Write-DebugLog 'Already admin, nothing to do.'
     Return
   }
 
   $PsCmd = (Get-ChildItem -Path "$PSHome\pwsh*.exe", "$PSHome\powershell*.exe")[0]
 
-  Write-Information "Elevating script to Admin.."
+  Write-Information 'Elevating script to Admin..'
 
   $ScriptPath = (Get-PSCallStack)[1].ScriptName
   $ScriptDir = (Get-PSCallStack)[1].ScriptName | Split-Path -Parent
@@ -65,7 +65,7 @@ function Invoke-ToAdmin {
 
   Start-Process "$PsCmd" `
     -Verb runAs `
-    -ArgumentList "-File", "$ScriptPath" `
+    -ArgumentList '-File', "$ScriptPath" `
     -WorkingDirectory $ScriptDir
 }
 
@@ -175,7 +175,7 @@ function Start-SleepOrKey {
   $startTime = Get-Date
   while (((Get-Date) - $startTime) -lt [TimeSpan]::FromSeconds($Seconds)) {
     if ($Host.UI.RawUI.KeyAvailable) {
-      $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+      $key = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
       return $key
     }
     Start-Sleep -Milliseconds 100  # Wait for 100 milliseconds before checking again
@@ -187,9 +187,11 @@ function Start-SleepUntilTrue {
   .VERSION 20230330
 
   .SYNOPSIS
-  Function to pause execution until a condition is met or a timeout is reached.
-  Condition is considered met if the scriptblock returns a value that is not $null or $false.
-  Function returns the result of Condition, so it can be used in variable assignment.
+  Pause execution until a condition is met or a timeout is reache
+  
+  .DESCRIPTION
+  Condition is considered met when the scriptblock returns a value that is neither `$null` or `$false`.
+  Function passes through the result of `{ Condition }`, so it can be used in a variable assignment.
 
   .EXAMPLE
   $result = Start-SleepUntilTrue -Condition { Get-Process -Name "notepad" } -Seconds 10
@@ -239,6 +241,9 @@ Function Get-RealPath {
   .VERSION 20230406
 
   .SYNOPSIS
+  Returns the real path of a file or folder if the current path is on a substed drive
+
+  .DESCRIPTION
   Checks if the path is substed and returns the real path.
   Otherwise returns the current path.
 
@@ -252,12 +257,12 @@ Function Get-RealPath {
     [string]$Path
   )
   if ([string]::IsNullOrEmpty($Path)) {
-    $Path=$PWD.Path
+    $Path = $PWD.Path
   }
   $Path = (Resolve-Path $Path).Path
   $SubstedPaths = Get-SubstedPaths
-  if ($SubstedPaths.Keys -contains $Path.Substring(0,2)) {
-    $RealPath = $SubstedPaths[$Path.Substring(0,2)] + $Path.Substring(2).TrimEnd('\')
+  if ($SubstedPaths.Keys -contains $Path.Substring(0, 2)) {
+    $RealPath = $SubstedPaths[$Path.Substring(0, 2)] + $Path.Substring(2).TrimEnd('\')
     return $RealPath
   }
   else {
@@ -266,7 +271,17 @@ Function Get-RealPath {
 }
 
 Function Get-Timestamp {
-  return Get-Date -Format "yyyyMMdd-HHmmss"
+  <#
+  .VERSION 20230407
+  #>
+  return Get-Date -Format 'yyyyMMdd-HHmmss'
+}
+
+Function Get-ShortGUID {
+  <#
+  .VERSION 20230407
+  #>
+  return (New-Guid).Guid.Split('-')[0]
 }
 
 ###
@@ -275,6 +290,8 @@ Function Get-Timestamp {
 
 function Get-RegValue {
   <#
+  .VERSION 20230407
+
   .SYNOPSIS
   Reads a value from the registry
 
@@ -282,6 +299,7 @@ function Get-RegValue {
   ✓ This is a simplified version of the Get-ItemPropertyValue function.
   ✓ No need to specify the Value Name and Path in separate parameters.
   ✓ Supports multiple namings for the HKCU and HKLM root keys for convenience.
+  ‼ By design, backslash in Value Name is not supported
 
   .PARAMETER FullPath
   The full path to the registry value, including the Value Name.
@@ -315,6 +333,8 @@ function Get-RegValue {
 
 function Set-RegValue {
   <#
+  .VERSION 20230407
+
   .SYNOPSIS
   Writes a value to the registry
 
@@ -324,6 +344,7 @@ function Set-RegValue {
   ✓ Accepts various spellings of the `HKCU` and `HKLM` root keys for convenience.
   ✓ Autmatic data type detection for Value
   ✓ Auto-create the Path using the Force parameter
+  ‼ By design, backslash in Value Name is not supported
 
   .PARAMETER FullPath
   The full path to the registry value, including the value name.
@@ -348,8 +369,8 @@ function Set-RegValue {
 
   param(
     [string]$FullPath,
-    [string[]]$Value,
-    [Parameter(Mandatory = $true)][ValidateSet('String', 'ExpandString', 'Binary', 'DWord', 'MultiString', 'QWord', 'REG_SZ', 'REG_EXPAND_SZ', 'REG_BINARY', 'REG_DWORD', 'REG_MULTI_SZ', 'REG_QWORD')][string]$Type,
+    [object[]]$Value,
+    [Parameter(Mandatory = $true)][ValidateSet('String', 'REG_SZ', 'MultiString', 'REG_MULTI_SZ', 'ExpandString', 'REG_EXPAND_SZ', 'DWord', 'REG_DWORD', 'QWord', 'REG_QWORD', 'Binary', 'REG_BINARY')][string]$Type,
     [switch]$Force
   )
   
@@ -380,8 +401,8 @@ function Set-RegValue {
   }
 
   switch -wildcard ($Type) {
-    "*String" { $ValueConv = $Value }
-    'Binary' { Throw "Set-RegValue -Type Binary : Not implemented" }
+    '*String' { $ValueConv = $Value }
+    'Binary' { Throw 'Set-RegValue -Type Binary : Not implemented' }
     'DWord' { $ValueConv = [System.Convert]::ToUInt32($Value[0]) }
     'QWord' { $ValueConv = [System.Convert]::ToUInt64($Value[0]) }
   }
@@ -403,7 +424,7 @@ function Set-RegValue {
 
 function Register-PowerShellScheduledTask {
   <#
-  .VERSION 20230331
+  .VERSION 20230407
 
   .SYNOPSIS
   Registers a PowerShell script as a **Hidden** Scheduled Task.
@@ -456,19 +477,23 @@ function Register-PowerShellScheduledTask {
   #>
 
   param(
-    [Parameter(Mandatory = $true)]$ScriptPath,
+    [Parameter(Mandatory = $true, Position = 0)]$ScriptPath,
     [hashtable]$Parameters = @{},
     [string]$TaskName,
-    [bool]$AllowRunningOnBatteries,
-    [switch]$DisallowHardTerminate,
-    [TimeSpan]$ExecutionTimeLimit,
     [int]$TimeInterval,
     [switch]$AtLogon,
     [switch]$AtStartup,
+    [bool]$AllowRunningOnBatteries,
+    [switch]$DisallowHardTerminate,
+    [TimeSpan]$ExecutionTimeLimit,
     [string]$GroupId,
     [switch]$AsAdmin,
     [switch]$Uninstall
   )
+
+  if (!($TimeInterval -or $AtLogon -or $AtStartup)) {
+    Throw 'At least one of the following parameters must be defined: -TimeInterval, -AtLogon, -AtStartup'
+  }
 
   if ([string]::IsNullOrEmpty($TaskName)) {
     $TaskName = Split-Path $ScriptPath -Leaf
@@ -501,7 +526,7 @@ function Register-PowerShellScheduledTask {
     New-Item -ItemType Directory -Path $vbsDir
   }
 
-  $ps = @(); $Parameters.GetEnumerator() | ForEach-Object { $ps += "-$($_.Name) $($_.Value)" }; $ps -join " "
+  $ps = @(); $Parameters.GetEnumerator() | ForEach-Object { $ps += "-$($_.Name) $($_.Value)" }; $ps -join ' '
   $vbsScript = @"
 Dim shell,command
 command = "powershell.exe -nologo -File $ScriptPath $ps"
@@ -580,7 +605,9 @@ shell.Run command, 0, true
   else {
     $cim = Set-ScheduledTask -TaskName $TaskName -Action $action -Trigger $triggers -Settings $STSet @AdditionalOptions
   }
-  
+
+  # Sometimes $cim returns more than 1 object, looks like a PowerShell bug.
+  # In those cases, get the last element of the list.
   return $cim
 }
 
@@ -614,7 +641,7 @@ function New-Shortcut {
   )
 
   if ((Test-Path -LiteralPath $LnkPath) -and !$Force) {
-    Write-DebugLog "Link already exists, exiting."
+    Write-DebugLog 'Link already exists, exiting.'
     Return # "AlreadyExists"
   }
 
@@ -636,7 +663,7 @@ function New-Shortcut {
     New-Item -Path $ParentPath -ItemType Directory -Force
   }
 
-  $nonASCII = "[^\x00-\x7F]"
+  $nonASCII = '[^\x00-\x7F]'
   $HasUnicode = $LnkPath -cmatch $nonASCII
 
   if ($HasUnicode) {
@@ -648,10 +675,10 @@ function New-Shortcut {
   if ($Arguments) {
     Write-DebugLog "Arguments supplied: $Arguments"
   }
-  $WshShell = New-Object -comObject WScript.Shell
+  $WshShell = New-Object -ComObject WScript.Shell
   $Shortcut = $WshShell.CreateShortcut($LnkPath)
   $Shortcut.TargetPath = $TargetExe
-  $Shortcut.Arguments = $Arguments -join " "
+  $Shortcut.Arguments = $Arguments -join ' '
 
   if ($IconPath) {
     $Shortcut.IconLocation = $IconPath
@@ -906,12 +933,12 @@ function Get-EnvPathsArr {
 	
   if ( @('Machine', 'All') -icontains $Scope) {
     $Paths += `
-      [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine).Split(';', [System.StringSplitOptions]::RemoveEmptyEntries)
+      [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::Machine).Split(';', [System.StringSplitOptions]::RemoveEmptyEntries)
   }
 	
   if ( @('User', 'All') -icontains $Scope) {
     $Paths += `
-      [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::User).Split(';', [System.StringSplitOptions]::RemoveEmptyEntries)
+      [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::User).Split(';', [System.StringSplitOptions]::RemoveEmptyEntries)
   }	
 
   return $Paths
@@ -944,7 +971,7 @@ function Add-UserPaths {
   [String[]]$existingPathsUser = Get-EnvPathsArr('User')
 
   $NewPathsDiff = Compare-Object -ReferenceObject $existingPathsUser -DifferenceObject $Paths | `
-    Where-Object SideIndicator -eq '=>' | `
+    Where-Object SideIndicator -EQ '=>' | `
     Select-Object -ExpandProperty InputObject
 
   if ($NewPathsDiff.Count -eq 0) {
@@ -959,7 +986,7 @@ function Add-UserPaths {
   }
   else {
     Write-DebugLog "Adding the following paths to user %PATH%:`n- $($NewPathsDiff -join "`n- ")`n"
-    [Environment]::SetEnvironmentVariable("Path", "$newEnvTargetUser", [System.EnvironmentVariableTarget]::User)
+    [Environment]::SetEnvironmentVariable('Path', "$newEnvTargetUser", [System.EnvironmentVariableTarget]::User)
   }
 }
 
@@ -987,7 +1014,7 @@ function Remove-UserPaths {
   [String[]]$existingPathsUser = Get-EnvPathsArr('User')
 
   $remainingPaths = Compare-Object -ReferenceObject $existingPathsUser -DifferenceObject $Paths | `
-    Where-Object SideIndicator -eq '<=' | `
+    Where-Object SideIndicator -EQ '<=' | `
     Select-Object -ExpandProperty InputObject
 
   $removePaths = Compare-Object -ReferenceObject $existingPathsUser -DifferenceObject $installPaths -ExcludeDifferent -IncludeEqual | `
@@ -999,10 +1026,10 @@ function Remove-UserPaths {
     Write-DebugLog "Removing the following paths from user %PATH%:`n- $($removePaths -join "`n- ")`n"
     Write-Verbose "[Remove-UserPaths]: Updating user %PATH% to:`n- $($remainingPaths -join "`n- ")`n"
 
-    [Environment]::SetEnvironmentVariable("Path", "$newUserEnvString", [System.EnvironmentVariableTarget]::User)
+    [Environment]::SetEnvironmentVariable('Path', "$newUserEnvString", [System.EnvironmentVariableTarget]::User)
   }
   else {
-    Write-DebugLog "No paths to remove from user %PATH%."
+    Write-DebugLog 'No paths to remove from user %PATH%.'
   }
 }
 
@@ -1027,12 +1054,12 @@ function Update-PathsInShell {
   $diff = Compare-Object -ReferenceObject $pathsInRegistry -DifferenceObject $pathsInShell
 
   if (!$diff) {
-    Write-DebugLog "%PATH% in shell already up to date."
+    Write-DebugLog '%PATH% in shell already up to date.'
     return
   }
 
   Write-Verbose "Updates to %PATH% detected:`n`n $($diff | Out-String) `n"
-  Write-DebugLog "Refreshing %PATH% in current shell.."
+  Write-DebugLog 'Refreshing %PATH% in current shell..'
   $env:Path = $pathsInRegistry -join ';'
 }
 
@@ -1092,13 +1119,13 @@ InfoTip=$Comment
     Write-DebugLog "Contents of ${IniPath}:"
     Write-Verbose [String[]]$Content
 
-    $HeaderLineNumber = $Content | Select-String -Pattern  "^\[\.ShellClassInfo\]"  | Select-Object -First 1 -ExpandProperty LineNumber
+    $HeaderLineNumber = $Content | Select-String -Pattern '^\[\.ShellClassInfo\]' | Select-Object -First 1 -ExpandProperty LineNumber
     If (!$HeaderLineNumber) {
-      $Content.Insert($Content.Count, "[.ShellClassInfo]")
+      $Content.Insert($Content.Count, '[.ShellClassInfo]')
       $HeaderLineNumber = $Content.Count
     }
 
-    $CommentLineNumber = $Content | Select-String -Pattern "^InfoTip=" | Select-Object -First 1 -ExpandProperty LineNumber
+    $CommentLineNumber = $Content | Select-String -Pattern '^InfoTip=' | Select-Object -First 1 -ExpandProperty LineNumber
     If (!$CommentLineNumber) {
       $Content.Insert($Content.Count, "InfoTip=$Comment")
     }

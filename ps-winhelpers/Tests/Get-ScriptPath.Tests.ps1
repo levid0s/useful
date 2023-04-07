@@ -1,14 +1,16 @@
-$DebugPreference = "Continue"
-$InformationPreference = "Continue"
-$VerbosePreference = "Continue"
+BeforeAll {
+  $DebugPreference = 'Continue'
+  $InformationPreference = 'Continue'
+  $VerbosePreference = 'Continue'
+  
+  . "$PSScriptRoot\..\..\ps-winhelpers\_PS-WinHelpers.ps1"
+  
+  Write-Host "PSScriptRoot: $PSScriptRoot"  
+}
 
-. N:\src\useful\ps-winhelpers\_PS-WinHelpers.ps1
-
-Write-Host "PSScriptRoot: $PSScriptRoot"
-
-Describe "Test: Get-ScriptPath" {
+Describe 'Test: Get-ScriptPath' {
   It "should return '$PSScriptRoot'" {
     $result = Get-ScriptPath
-    $result | Should Be $PSScriptRoot
+    $result | Should -Be $PSScriptRoot
   }
 }
