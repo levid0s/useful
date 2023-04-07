@@ -270,6 +270,48 @@ Function Get-RealPath {
   }
 }
 
+function Get-RealGitRoot {
+  <#
+  .VERSION 20230407
+
+  .SYNOPSIS
+  Returns the git root of a file or folder
+
+  .DESCRIPTION
+  ✓ If path is a substed drive, it's resolved to the real location
+  ✓ If path is inside a git repo, it's resolved to the git root
+  ✓ If path is pointing to a file, it's resolved to the parent directory
+
+  .EXAMPLE
+  Get-RealGitRoot .
+  Get-RealGitRoot n:/src/useful/scripts
+  #>
+
+  param(
+    [Parameter(Mandatory = $true)][string]$Location
+  )
+
+  $RealPath = Get-RealPath $Location
+  if (Test-Path $RealPath) {
+    $CheckPath = $RealPath
+    if (!(Test-Path $CheckPath -Type Container)) {
+      $CheckPath = Split-Path $RealPath -Parent
+    }
+    Write-Verbose "Check path is: $CheckPath"
+    Push-Location $CheckPath
+    $GitRoot = git rev-parse --show-toplevel 2>$null
+    if ($LASTEXITCODE -ne 0) {
+      $GitRoot = $CheckPath
+      Write-Verbose "Not a git repo. Keeping the real path: $CheckPath"
+    }
+    $RealPath = $GitRoot
+    Pop-Location
+  }
+  
+  Return $RealPath | Resolve-Path
+}
+
+
 Function Get-Timestamp {
   <#
   .VERSION 20230407
