@@ -533,8 +533,8 @@ function Register-PowerShellScheduledTask {
     [switch]$Uninstall
   )
 
-  if (!($TimeInterval -or $AtLogon -or $AtStartup)) {
-    Throw 'At least one of the following parameters must be defined: -TimeInterval, -AtLogon, -AtStartup'
+  if (!($TimeInterval -or $AtLogon -or $AtStartup -or $Uninstall)) {
+    Throw 'At least one of the following parameters must be defined: -TimeInterval, -AtLogon, -AtStartup, (or -Uninstall)'
   }
 
   if ([string]::IsNullOrEmpty($TaskName)) {

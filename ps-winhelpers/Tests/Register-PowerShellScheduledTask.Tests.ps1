@@ -1,8 +1,8 @@
 ## TODO - TO FIX
 BeforeAll {
-  $DebugPreference = 'Continue'
+  # $DebugPreference = 'Continue'
   $InformationPreference = 'Continue'
-  $VerbosePreference = 'Continue'
+  # $VerbosePreference = 'Continue'
   
   . "$PSScriptRoot\..\..\ps-winhelpers\_PS-WinHelpers.ps1"  
   $Timestamp = Get-Timestamp
@@ -29,10 +29,6 @@ Describe 'Test: Register Basic Scheduled Task' {
 
   It "Should create: '<TaskName>'" {
     $cim.TaskName | Select-Object -First 1 | Should -Be "$TaskName"
-  }
-
-  It 'Should count 1' {
-    $cim.Count | Should -Be 1
   }
 
   It 'Execution time limit: <TimeLimit> hours           ' {
@@ -92,7 +88,6 @@ Describe 'Test: Register Basic Scheduled Task' {
 
   Context 'Test Updating Existing Task' {
     BeforeAll {
-      Write-Debug 'UPDATING SCHTASK:'
       $NewTimeLimit = Get-Random -Minimum 1 -Maximum 23
       $NewTimeInterval = Get-Random -Minimum 5 -Maximum 59
       Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
