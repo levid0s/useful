@@ -4,6 +4,8 @@ param(
   $arg2
 )
 
+Write-Host "Running dummy script..."
+
 $HaltScriptOnParentExit = { Start-Job -ScriptBlock {
     param($ScriptPid)
     $parentProcessId = (Get-WmiObject Win32_Process -Filter "processid='$ScriptPid'").ParentProcessId

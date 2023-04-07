@@ -6,9 +6,9 @@ BeforeAll {
   . "$PSScriptRoot\..\..\ps-winhelpers\_PS-WinHelpers.ps1"  
 }
 
-Describe 'Test: Install-ModuleIfNotPresent' {
+Describe 'Test: Invoke-ToAdmin' {
   It "should return 'Null'" {
-    $result = Install-ModuleIfNotPresent 'Pester'
+    $result = Invoke-ToAdmin
     $result | Should -Be $Null
   }
 }

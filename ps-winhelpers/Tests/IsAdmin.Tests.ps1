@@ -1,12 +1,14 @@
-$DebugPreference = "Continue"
-$InformationPreference = "Continue"
-$VerbosePreference = "Continue"
+BeforeAll {
+  $DebugPreference = 'Continue'
+  $InformationPreference = 'Continue'
+  $VerbosePreference = 'Continue'
+  
+  . "$PSScriptRoot\..\..\ps-winhelpers\_PS-WinHelpers.ps1"  
+}
 
-. N:\src\useful\ps-winhelpers\_PS-WinHelpers.ps1
-
-Describe "Test: IsAdmin" {
+Describe 'Test: IsAdmin' {
   It "should return 'False'" {
     $result = IsAdmin
-    $result | Should Be $False
+    $result | Should -Be $False
   }
 }
