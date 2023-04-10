@@ -1231,3 +1231,82 @@ Function Get-DropboxInstallPath {
   $Data = Get-Content $Path | ConvertFrom-Json
   Return $Data.personal.path
 }
+
+function Get-StreamContent {
+  <#
+  .VERSION 20230410
+
+  .SYNOPSIS
+  Get the content of an NTFS file or directory stream
+
+  .EXAMPLE
+  Get-StreamContent -Path 'C:\users\admin\Dropbox\Temp\hello.txt' -StreamName 'com.dropbox.ignored'
+
+  .EXAMPLE
+  Get-StreamContent -Path 'C:\users\admin\Dropbox\Temp' -StreamName 'com.dropbox.ignored'
+  #>
+  
+  param (
+    [string]$Path,
+    [Parameter(Mandatory)][string]$StreamName,
+    [Parameter()][ValidateSet('Default', 'Byte')][string]$Encoding = 'Default'
+  )
+  $Path = Resolve-Path $Path
+  $result = cmd /c dir $Path /r | Select-String -SimpleMatch ":$StreamName"
+  if ($null -ne $result) {
+    $Path = Resolve-Path $Path
+    $streamPath = $Path + ":$StreamName"
+    $content = Get-Content -Path $streamPath -Encoding $Encoding
+    return $content
+  }
+  return $null
+}
+
+Function Set-DropboxIgnoredPath {
+  <#
+  .VERSION 20230410
+
+  .SYNOPSIS
+  Sets a path to be ignored by Dropbox
+
+  .EXAMPLE
+  Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp'
+  Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp' -Unignore
+  Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp\hello.txt'
+  Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp\hello.txt' -Unignore
+  #>
+
+  param(
+    [string]$Path,
+    [switch]$Unignore
+  )
+
+  if (!$Unignore) {
+    Set-Content -Path $Path -Stream com.dropbox.ignored -Value 1
+  }
+  else {
+    Clear-Content -Path $Path -Stream com.dropbox.ignored
+  }
+}
+
+Function Get-DropboxIgnoredPath {
+  <#
+  .VERSION 20230410
+
+  .SYNOPSIS
+  Checks if a path is ignored by Dropbox
+
+  .EXAMPLE
+  Get-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp'
+  Get-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp' -Unignore
+  Get-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp\hello.txt'
+  Get-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp\hello.txt' -Unignore
+  #>
+
+  param(
+    [string]$Path
+  )
+
+  $Stream = Get-StreamContent -Path $Path -Stream com.dropbox.ignored
+  return !!$stream
+}

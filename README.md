@@ -51,6 +51,9 @@ A collection of useful PowerShell functions and classes that I use in my scripts
 | Set-FolderComment                | Sets a Windows Explorer comment on a folder. (not fully working)                       |
 | Install-Font                     | Installs a font from a file.                                                           |
 | Get-DropboxInstallPath           | Returns the path of the Dropbox data sync folder.                                      |
+| Get-StreamContent                | Returns the content of an NTFS stream as a string.                                     |
+| Set-DropboxIgnoredPath           | Sets a path to be ignored by Dropbox                                                   |
+| Get-DropboxIgnoredPath           | Checks if a path is ignored by Dropbox.                                                |
 
 
 # Useful/Scripts
