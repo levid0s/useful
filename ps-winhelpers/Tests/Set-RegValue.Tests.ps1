@@ -1,9 +1,5 @@
-BeforeAll {
-  $DebugPreference = 'Continue'
-  $InformationPreference = 'Continue'
-  $VerbosePreference = 'Continue'
-  
-  . "$PSScriptRoot\..\..\ps-winhelpers\_PS-WinHelpers.ps1"  
+BeforeDiscovery {
+  . "$PSScriptRoot/_BeforeDiscoveryAll.ps1"
 }
 
 BeforeDiscovery {
@@ -26,6 +22,14 @@ BeforeDiscovery {
 
     # @{ Name = 'REG_BINARY'; RegType = 'REG_BINARY'; ValType = '???'; Value = '101' } # Not implemented
   )
+}
+
+BeforeAll {
+  $DebugPreference = 'Continue'
+  $InformationPreference = 'Continue'
+  $VerbosePreference = 'Continue'
+  
+  . "$PSScriptRoot\..\..\ps-winhelpers\_PS-WinHelpers.ps1"  
 }
 
 Describe 'Create Registry Values' {

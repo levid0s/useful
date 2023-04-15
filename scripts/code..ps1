@@ -1,5 +1,5 @@
 <#
-.VERSION 20230406
+.VERSION 20230415
 
 .SYNOPSIS
 Resolves the path of $args[0] if it's on a substed drive, so that Git Gutters will work properly in VS Code.
@@ -21,7 +21,7 @@ code n:\src\repo1
 ```
 #>
 
-Write-Output 'Starting VS Code loader..'
+Write-Output "[$($MyInvocation.MyCommand.Path)] Starting VS Code loader .."
 
 . "$PSScriptRoot/../ps-winhelpers/_PS-WinHelpers.ps1"
 

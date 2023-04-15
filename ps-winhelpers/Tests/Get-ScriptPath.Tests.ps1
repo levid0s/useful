@@ -1,3 +1,7 @@
+BeforeDiscovery {
+  . "$PSScriptRoot/_BeforeDiscoveryAll.ps1"
+}
+
 BeforeAll {
   $DebugPreference = 'Continue'
   $InformationPreference = 'Continue'
