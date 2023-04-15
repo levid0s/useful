@@ -1,3 +1,7 @@
+BeforeDiscovery {
+  . "$PSScriptRoot/_BeforeDiscoveryAll.ps1"
+}
+
 ## TODO - TO FIX
 BeforeAll {
   # $DebugPreference = 'Continue'

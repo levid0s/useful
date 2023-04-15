@@ -211,6 +211,101 @@ function Start-SleepUntilTrue {
   return $result
 }
 
+Function Start-SleepUntilTrueEx {
+  <#
+  .VERSION 20230415
+
+  .SYNOPSIS
+  A more advanced version of Start-SleepUntilTrue, with exponential backoff and a check condition.
+
+  .DESCRIPTION
+  The function keeps executing the code from the Do and Check scriptblocks, until the a condition is considered met, as follows:
+  - If a Check block was provided, success depends if the Check block returns `$true`.
+  - If no Check block was provided, success depends if the Do block returns a value that is different from `$null` or `$false`.
+  - If the timeout has been reached, the function returns `$false`.
+  TODO: Output
+
+  .PARAMETER ExponentialBackoff
+  If set, the delay between each round will be doubled.
+
+  .PARAMETER MaxTimeoutMs
+  Maximum timeout in milliseconds.
+  If this is set, the function will exit when the timeout is reached, even if the total number of rounds have not been completed.
+
+  .EXAMPLE
+  # Wait for the notepad process to start
+  Start-SleepUntilTrueEx `
+    -Do {
+      Get-Process notepad -ErrorAction SilentlyContinue
+    }
+
+  .EXAMPLE
+  # Poll creating a user until it's successful, with exponential backoff.
+  Start-SleepUntilTrueEx `
+    -InitialDelayMs 1000 `
+    -ExponentialBackoff `
+    -Do {
+      curl.exe -X POST 'https://example.com/api/create-user' --data-raw '{ "username": "johndoe", "email": "johndoe@example.com", "password": "secretpassword"}'
+    } `
+    -Check {
+      curl.exe 'https://example.com/api/user?id=johndoe'
+    }
+  #>
+
+  param(
+    [int]$Rounds = 5,
+    [int]$InitialDelayMs = 100,
+    [int]$MaxTimeoutMs,
+    [switch]$ExponentialBackoff,
+    [scriptblock]$Do = {},
+    [scriptblock]$Check = {}
+  )
+
+  $CheckResult = $null
+  $startTime = Get-Date
+
+  for ($round = 1; $round -le $rounds; $round++) {
+    if ($round -gt 1) {
+      Write-Verbose "Check condition not met, retrying with exponential backoff, round $round. Sleeping for $InitialDelayMs ms.."
+      Start-Sleep -Milliseconds $InitialDelayMs
+      if ($ExponentialBackoff) {
+        $InitialDelayMs *= 2
+      }
+    }
+    if ($MaxTimeoutMs) {
+      $elapsedTime = (Get-Date) - $startTime
+      if ($elapsedTime.TotalMilliseconds -gt $MaxTimeoutMs) {
+        Throw "Check condition not met after $Rounds rounds. Timeout reached."
+      }
+    }
+    try {
+      $DoResult = & $Do
+      $DoSuccess = $true
+    }
+    catch {
+      $DoSuccess = $false
+    }
+
+    # If a Check block was provided, success depends if the Check block returns $true.
+    if ($Check.ToString()) {
+      $CheckResult = & $Check
+      if (!$CheckResult) {
+        Continue
+      }
+    }
+    else {
+      # If no Check block was provided, success depends if the Do block doesn't throw an error.
+      if (!$DoSuccess) {
+        Continue
+      }
+    }
+
+    Write-Verbose 'Check condition met, exiting loop.'
+    return @{DoResult = $DoResult; CheckResult = $CheckResult }
+  }
+  Throw "Check condition not met after $Rounds rounds."
+}
+
 Function Get-SubstedPaths {
   <#
   .VERSION 20230406
@@ -326,13 +421,32 @@ Function Get-ShortGUID {
   return (New-Guid).Guid.Split('-')[0]
 }
 
+function Get-StringHash {
+  <#
+  .VERSION 20230415
+
+  .SYNOPSIS
+  Returns the hash of a string
+  #>
+
+  param(
+    [Parameter(Mandatory = $true)][string]$String,
+    [ValidateSet('MD5', 'SHA1', 'SHA256', 'SHA384', 'SHA512')][string]$HashAlgorithm = 'SHA256'
+  )
+
+  $hasher = [System.Security.Cryptography.HashAlgorithm]::Create($HashAlgorithm)
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($String)
+  $hashBytes = $hasher.ComputeHash($bytes)
+  return [System.BitConverter]::ToString($hashBytes) -replace '-'
+}
+
 ###
 ###  Registry Manipulation Functions
 ###
 
 function Get-RegValue {
   <#
-  .VERSION 20230407
+  .VERSION 20230415
 
   .SYNOPSIS
   Reads a value from the registry
@@ -356,10 +470,16 @@ function Get-RegValue {
   Get-RegValue -FullPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\Personal' -ErrorAction SilentlyContinue
   #>
 
+  [CmdletBinding()]
   param(
-    [string]$FullPath,
-    [ValidateSet('SilentlyContinue', 'Stop', 'Ignore', 'Inquire', 'Continue')][string]$ErrorAction = 'Stop'
+    [string]$FullPath
   )
+
+  $ErrorAction = $PSBoundParameters['ErrorAction']
+  if ([string]::IsNullOrEmpty($ErrorAction)) {
+    Write-Verbose "Setting default value for ErrorAction: 'Stop'"
+    $ErrorAction = 'Stop'
+  }
 
   $Path = Split-Path $FullPath -Parent
   $Path = $Path -replace '^(HKCU|HKEY_CURRENT_USER|HKEY_CURRENT_USER:)\\', 'HKCU:\'
@@ -1264,22 +1384,37 @@ function Get-StreamContent {
 
 Function Set-DropboxIgnoredPath {
   <#
-  .VERSION 20230410
+  .VERSION 20230415
 
   .SYNOPSIS
   Sets a path to be ignored by Dropbox
 
   .EXAMPLE
   Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp'
-  Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp' -Unignore
+  Set-DropboxIgnoredPath -Path 'C:\users\adm in\Dropbox\Temp' -Unignore
   Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp\hello.txt'
   Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp\hello.txt' -Unignore
   #>
 
+  [CmdletBinding()]
   param(
     [string]$Path,
     [switch]$Unignore
   )
+
+  $ErrorAction = $PSBoundParameters['ErrorAction']
+  if ([string]::IsNullOrEmpty($ErrorAction)) {
+    Write-Verbose "Setting default value for ErrorAction: 'Stop'"
+    $ErrorAction = 'Stop'
+  }
+
+  if (!(Test-Path $Path)) {
+    switch ($ErrorAction) {
+      'SilentlyContinue' { return }
+      'Continue' { Write-Error "1Error: Path $Path not found." }
+      'Stop' { Throw "Error: Path $Path not found." }
+    }
+  }
 
   if (!$Unignore) {
     Set-Content -Path $Path -Stream com.dropbox.ignored -Value 1
@@ -1309,4 +1444,95 @@ Function Get-DropboxIgnoredPath {
 
   $Stream = Get-StreamContent -Path $Path -Stream com.dropbox.ignored
   return !!$stream
+}
+
+Function Set-DropboxItemOfflineMode {
+  <#
+  .VERSION 20230415
+
+  .SYNOPSIS
+  Sets a path to be ignored by Dropbox
+
+  .EXAMPLE
+  Set-DropboxItemOfflineMode -Path 'C:\users\admin\Dropbox\Temp' -Mode 'Offline'
+  Set-DropboxItemOfflineMode -Path 'C:\users\admin\Dropbox\Temp2\hello.json' -Mode 'OnlineOnly'
+  #>
+  
+  [CmdletBinding()]
+  param(
+    [string]$Path,
+    # Mode can be OnlineOnly or Offline
+    [Parameter(Mandatory)][ValidateSet('OnlineOnly', 'Offline')][string]$Mode  
+  )
+
+  $ErrorAction = $PSBoundParameters['ErrorAction']
+  if ([string]::IsNullOrEmpty($ErrorAction)) {
+    Write-Verbose "Setting default value for ErrorAction: 'Stop'"
+    $ErrorAction = 'Stop'
+  }
+
+  if (!(Test-Path $Path)) {
+    switch ($ErrorAction) {
+      'SilentlyContinue' { return }
+      'Continue' { Write-Error "1Error: Path $Path not found." }
+      'Stop' { Throw "Error: Path $Path not found." }
+    }
+  }
+
+  if (!(Get-Process 'dropbox' -ErrorAction SilentlyContinue)) {
+    switch ($ErrorAction) {
+      'SilentlyContinue' { return }
+      'Continue' { Write-Error 'Error: Dropbox is not running.' }
+      'Stop' { Throw 'Error: Dropbox is not running.' }
+    }
+  }
+  
+  $Path = Get-RealPath $Path
+
+  $Modes = @{
+    'OnlineOnly' = 0
+    'Offline'    = 1
+  }
+
+  $VerbTexts = @('Make online-only', 'Make available offline')
+
+  $shell = New-Object -ComObject Shell.Application
+
+  if (Get-Item -Path $Path | Select-Object -ExpandProperty PSIsContainer) {
+    # Target is a folder
+    $namespace = $shell.Namespace($Path)
+    $item = $namespace.Self
+  }
+  else {
+    # Target is a file
+    $folderPath = Split-Path $filePath -Parent
+    $namespace = $shell.Namespace($folderPath)
+    $item = $namespace.ParseName($fileName)
+  }
+  
+  $verbs = $item.Verbs()
+
+  $actionVerb = $verbs | Where-Object { $_.Name -eq $VerbTexts[$Modes[$Mode]] }
+  # Write-Debug "Looking for ActionVerb: $($VerbTexts[$Modes[$Mode]])"
+  if ($null -eq $actionVerb) {
+    if ($verbs | Where-Object { $_.Name -eq $VerbTexts[($Modes[$Mode] + 1) % 2] }) {
+      # Write-Debug "$Path is already in $Mode mode."
+      return
+    }
+    else {
+      Write-Verbose "$($verbs | Out-String)"
+      Throw "Error: Verb '$($VerbTexts[$Modes[$Mode]])' not found."
+    }
+  }
+
+  try {
+    $actionVerb.DoIt()
+  }
+  catch {
+    switch ($ErrorAction) {
+      'SilentlyContinue' { return }
+      'Continue' { Write-Error $_ }
+      'Stop' { Throw $_ }
+    }
+  }
 }

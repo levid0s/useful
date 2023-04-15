@@ -1,3 +1,7 @@
+BeforeDiscovery {
+  . "$PSScriptRoot/_BeforeDiscoveryAll.ps1"
+}
+
 BeforeAll {
   Import-Module Pester
   $PesterPreference = [PesterConfiguration]::Default

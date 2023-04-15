@@ -1,7 +1,14 @@
-BeforeAll {
+BeforeDiscovery {
+  . "$PSScriptRoot/_BeforeDiscoveryAll.ps1"
+}
+
+BeforeDiscovery {
   Import-Module Pester
   $PesterPreference = [PesterConfiguration]::Default
   $PesterPreference.Output.Verbosity = 'Detailed'
+}
+
+BeforeAll {
   $DebugPreference = 'Continue'
 
   . "$PSScriptRoot/../_PS-WinHelpers.ps1"
@@ -55,6 +62,11 @@ Describe 'Test Set-DropboxIgnoredPath.ps1' {
       $value = Get-StreamContent -Path $testPath -StreamName 'com.dropbox.ignored'
       $value | Should -Be 1
     }
+
+    It 'non-existent path should throw an error' {
+      $testPath = "$TestDrive/$(New-Guid)"
+      { Set-DropboxIgnoredPath -Path $testPath } | Should -Throw "Error: Path $testPath not found."
+    }
     
     AfterAll {
       Pop-Location
@@ -63,8 +75,8 @@ Describe 'Test Set-DropboxIgnoredPath.ps1' {
 
   Context 'Files' {
     BeforeAll {
-      $randomString = -join ((97..122) | Get-Random -Count 10 | ForEach-Object { [char]$_ })
-      $testFile = "$TestDrive\$randomString.txt"
+      $randomString = -join ((97..122) | Get-Random -Count 10 | ForEach-Object { [char]$_ }) + '.txt'
+      $testFile = "$TestDrive\$randomString"
       New-Item -ItemType File -Path $testFile -Force | Out-Null
     }
 
@@ -104,6 +116,11 @@ Describe 'Test Set-DropboxIgnoredPath.ps1' {
       Set-DropboxIgnoredPath -Path $testPath
       $value = Get-StreamContent -Path $testPath -StreamName 'com.dropbox.ignored'
       $value | Should -Be 1
+    }
+
+    It 'non-existent path should throw an error' {
+      $testPath = "$TestDrive/$(New-Guid).txt"
+      { Set-DropboxIgnoredPath -Path $testPath } | Should -Throw "Error: Path $testPath not found."
     }
 
     AfterAll {

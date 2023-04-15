@@ -1,7 +1,8 @@
+BeforeDiscovery {
+  . "$PSScriptRoot/_BeforeDiscoveryAll.ps1"
+}
+
 BeforeAll {
-  Import-Module Pester
-  $PesterPreference = [PesterConfiguration]::Default
-  $PesterPreference.Output.Verbosity = 'Detailed'
   $DebugPreference = 'Continue'
 
   . "$PSScriptRoot/../_PS-WinHelpers.ps1"
