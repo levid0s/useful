@@ -1391,7 +1391,7 @@ Function Set-DropboxIgnoredPath {
 
   .EXAMPLE
   Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp'
-  Set-DropboxIgnoredPath -Path 'C:\users\adm in\Dropbox\Temp' -Unignore
+  Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp' -Unignore
   Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp\hello.txt'
   Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp\hello.txt' -Unignore
   #>
@@ -1457,7 +1457,7 @@ Function Set-DropboxItemOfflineMode {
   Set-DropboxItemOfflineMode -Path 'C:\users\admin\Dropbox\Temp' -Mode 'Offline'
   Set-DropboxItemOfflineMode -Path 'C:\users\admin\Dropbox\Temp2\hello.json' -Mode 'OnlineOnly'
   #>
-  
+
   [CmdletBinding()]
   param(
     [string]$Path,
