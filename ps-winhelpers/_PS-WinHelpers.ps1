@@ -36,6 +36,8 @@ function IsAdmin {
 
 function Invoke-ToAdmin {
   <#
+  .VERSION 2023.04.29
+
   .SYNOPSIS
   Elevates the current PowerShell script to admin privileges.
   If UAC is enbled, the user will get a UAC prompt.
@@ -47,7 +49,14 @@ function Invoke-ToAdmin {
   else {
     Write-Host "Doing stuff as admin."
   }
+
+  .TODO
+  - Add support for setting the working directory, as the -WorkingDirectory parameter is not working.
   #>
+
+  param(
+    [hashtable]$CustomArguments = @{}
+  )
 
   If (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
     Write-DebugLog 'Already admin, nothing to do.'
@@ -60,12 +69,61 @@ function Invoke-ToAdmin {
 
   $ScriptPath = (Get-PSCallStack)[1].ScriptName
   $ScriptDir = (Get-PSCallStack)[1].ScriptName | Split-Path -Parent
+
+
+  $ArgHashtable = @{}
+
+  $ArgumentsString = (Get-PSCallStack)[1].Arguments.TrimStart('{').TrimEnd('}')
+
+  foreach ($a in ($ArgumentsString -split ',\s*')) {
+    $k, $v = $a -split '\s*=\s*'
+    if ($k -eq 'InvokeToAdmin') { continue }
+    $ArgHashtable[$k] = $v
+  }
+
+  # Overwrite any arguments with custom ones
+  foreach ($k in $CustomArguments.Keys) {
+    $ArgHashtable[$k] = $CustomArguments[$k]
+  }
+
+  # Build the $ArgumentList string
+  $cmd = Get-Command $ScriptPath
+  $params = $cmd.Parameters
+
+  $ArgumentList = @('-File', $ScriptPath)
+  foreach ($k in $ArgHashtable.Keys) {
+    $v = $ArgHashtable[$k]
+    switch ($params[$k].ParameterType) {
+      'bool' { 
+        $ArgumentList += "-${k}"
+        $v = $v -in @('true', $true)
+        $ArgumentList += '$' + $v.ToString().ToLower()
+      }
+      'switch' {
+        if ($v -in @('true', $true)) {
+          $ArgumentList += "-${k}"
+        }
+      }
+      default {
+        $ArgumentList += "-${k}"
+        if ($null -eq $v) {
+          $v = '$null'
+        }
+        $ArgumentList += $v
+      }
+    }
+  }
+
   Write-Debug "ScriptPath: $ScriptPath"
   Write-Debug "ScriptDir: $ScriptDir"
-
+  Write-Debug "Arguments: $(Expand-Hashtable $ArgumentList)"
+  
+  Write-DebugLog "Start-Process $PsCmd -Verb runAs -ArgumentList $(Expand-Hashtable $ArgumentList) -WorkingDirectory $ScriptDir"
+  
+  # -Verb runAs `
   Start-Process "$PsCmd" `
     -Verb runAs `
-    -ArgumentList '-File', "$ScriptPath" `
+    -ArgumentList $ArgumentList `
     -WorkingDirectory $ScriptDir
 }
 
@@ -121,7 +179,9 @@ function Write-DebugLog {
   #>
 
   param(
-    [string]$Message
+    [string]$Message,
+    [string]$LogLevel = 'DEBUG',
+    [string]$Header = 'Data'
   )
 
   $Caller = (Get-PSCallStack)[1].Command
@@ -129,24 +189,45 @@ function Write-DebugLog {
   # Get depth of call. 0 = main script, 1 = Helper ps1 , 2 = Write-DebugLog. Level any negative value to 0
   $Depth = 0, ((Get-PSCallStack).Count - 3) | Measure-Object -Maximum | Select-Object -ExpandProperty Maximum  # Main script is 0
   
-  if (!$DEBUGDEPTH) {
+  if ($null -eq $DEBUGDEPTH) {
     # Default value, if not already set via a global var
     $DEBUGDEPTH = 2
   }
 
-  if ($Depth -gt $DEBUGDEPTH) { return }
+  if ($Depth -gt $DEBUGDEPTH -and $LogLevel -in @('VERBOSE', 'DEBUG')) { return }
   if (!$DEBUGDEPTH) { $MaxDepth = 4 * 2 }
   else { $MaxDepth = $DEBUGDEPTH * 2 }
 
   $FrontPadChar = '>'
   $FrontPadVal = $Depth * 2
-  $FrontPadding = $FrontPadChar * $FrontPadVal
+  $FrontPadding = $FrontPadChar * $FrontPadVal + ' ' * [math]::Sign($FrontPadVal)
   # $FrontPadding = $FrontPadding.PadRight($MaxDepth, ' ')
   $MidPadChar = '>'
   $MidPadVal = $Depth * 0
   $MidPadding = $MidPadChar * $MidPadVal + ' ' * [math]::Sign($MidPadVal)
 
-  Write-Debug "${FrontPadding} [ ${Caller} ]: ${MidPadding}${Message}"
+  switch ($LogLevel) {
+    'VERBOSE' { 
+      if ($Message -match '\r\n|\n|\r') {
+        # Multiline message
+        Write-Verbose "${FrontPadding}[ ${Caller} ]:`n======================== Start of $Header =====================`n${Message}========================= End of $Header ======================"
+      }
+      else {
+        Write-Verbose "${FrontPadding}[ ${Caller} ]: ${MidPadding}${Message}"
+      }
+    }
+    'DEBUG' { Write-Debug "${FrontPadding}[ ${Caller} ]: ${MidPadding}${Message}" }
+    'INFO' { 
+      # Workaround for https://stackoverflow.com/questions/55191548/write-information-does-not-show-in-a-file-transcribed-by-start-transcript
+      # InformationPreference should be = ??
+      Write-Information "${FrontPadding}[ ${Caller} ]: ${MidPadding}${Message}" 
+      [System.Console]::WriteLine("INFO: ${FrontPadding}[ ${Caller} ]: ${MidPadding}${Message}")
+    }
+    'WARN' { Write-Warning "${FrontPadding}[ ${Caller} ]: ${MidPadding}${Message}" }
+    'ERROR' { Write-Error "${FrontPadding}[ ${Caller} ]: ${MidPadding}${Message}" -ErrorAction Continue }
+    default { throw 'Unknown Log Level.' }
+  }
+  
 }
 
 function Start-SleepOrKey {
@@ -495,7 +576,7 @@ function Get-RegValue {
 
 function Set-RegValue {
   <#
-  .VERSION 20230407
+  .VERSION 20230429
 
   .SYNOPSIS
   Writes a value to the registry
@@ -563,21 +644,34 @@ function Set-RegValue {
   }
 
   switch -wildcard ($Type) {
-    '*String' { $ValueConv = $Value }
-    'Binary' { Throw 'Set-RegValue -Type Binary : Not implemented' }
-    'DWord' { $ValueConv = [System.Convert]::ToUInt32($Value[0]) }
-    'QWord' { $ValueConv = [System.Convert]::ToUInt64($Value[0]) }
+    'String' { [string]$TargetValue = $Value }
+    'ExpandString' { [string]$TargetValue = $Value }
+    'MultiString' { [string[]]$TargetValue = $Value }
+    'Binary' { [byte[]]$TargetValue = $Value }
+    'DWord' { $TargetValue = [System.Convert]::ToUInt32($Value[0]) }
+    'QWord' { $TargetValue = [System.Convert]::ToUInt64($Value[0]) }
   }
   
   $CheckValues = (Get-ItemProperty -LiteralPath $Path).PSObject.Properties
   if ($CheckValues.Name -contains $Name) {
-    if ($CheckValues[$Name].Value -eq $ValueConv) {
-      Write-DebugLog "Value already set: $Path\$Name = $ValueConv ($Type)"
+    $SourceValue = $CheckValues[$Name].Value
+    if ($null -in @($SourceValue, $TargetValue)) {
+      # Special exception for $null because Compare-Object doesn't support it
+      if ($SourceValue -eq $TargetValue) {
+        Write-DebugLog "Value already set: $Path\$Name = `$null ($Type)" -LogLevel Verbose
+        Return
+      }
+    }
+    elseif (!(Compare-Object -DifferenceObject $SourceValue -ReferenceObject $TargetValue -SyncWindow 0)) {
+      Write-DebugLog "Value already set: $Path\$Name = $TargetValue ($Type)" -LogLevel Verbose
       Return
     }
   }
-  New-ItemProperty -LiteralPath $Path -Name $Name -Value $ValueConv -PropertyType $Type -Force | Out-Null
-  Write-DebugLog "Writing to registry: $Path\$Name = $ValueConv ($Type)"
+
+  Write-DebugLog "Writing to registry: $Path\$Name = $TargetValue ($Type)"
+  $result = New-ItemProperty -LiteralPath $Path -Name $Name -Value $TargetValue -PropertyType $Type -Force
+
+  Return $result
 }
 
 ###
@@ -823,7 +917,7 @@ function New-Shortcut {
 
   $ParentPath = Split-Path $LnkPath -Parent
   if (!(Test-Path $ParentPath)) {
-    New-Item -Path $ParentPath -ItemType Directory -Force
+    New-Item -Path $ParentPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
   }
 
   $nonASCII = '[^\x00-\x7F]'
@@ -832,11 +926,11 @@ function New-Shortcut {
   if ($HasUnicode) {
     $RealLnkPath = $LnkPath
     $LnkPath = "$env:TEMP\$(New-Guid).lnk"
-    Write-DebugLog "$RealLnkPath has Unicode characters. Temp file is: $LnkPath"
+    Write-DebugLog "$RealLnkPath has Unicode characters. Temp file is: $LnkPath" -LogLevel Verbose
   }
 
   if ($Arguments) {
-    Write-DebugLog "Arguments supplied: $Arguments"
+    Write-DebugLog "Arguments supplied: $Arguments" -LogLevel Verbose
   }
   $WshShell = New-Object -ComObject WScript.Shell
   $Shortcut = $WshShell.CreateShortcut($LnkPath)
@@ -853,8 +947,11 @@ function New-Shortcut {
 
   if ($HasUnicode) {
     Move-Item -Path $LnkPath -Destination $RealLnkPath @ForceParam
-    Write-DebugLog "Moved $LnkPath to $RealLnkPath"
+    Write-DebugLog "Moved $LnkPath to $RealLnkPath" -LogLevel Verbose
   }
+
+  $result = Get-Item $RealLnkPath
+  return $result
 }
 
 ###
@@ -863,6 +960,9 @@ function New-Shortcut {
 
 function Set-ShellStaticVerb {
   <#
+
+  .VERSION 2023.04.28
+
   .SYNOPSIS
   Set an action for a static verb for a Win32 Shell Class, such as `open`, `edit`, `print`.
 
@@ -877,11 +977,16 @@ function Set-ShellStaticVerb {
     [string]$Label
   )
 
+  $result = @()
+
   $key = "HKCU:\SOFTWARE\Classes\${Class}\shell\${Verb}\(Default)"
-  Set-RegValue -FullPath $key -Value $Label -Type String -Force
+  $result += Set-RegValue -FullPath $key -Value $Label -Type String -Force
 
   $key = "HKCU:\SOFTWARE\Classes\${Class}\shell\${Verb}\command\(Default)"
-  Set-RegValue -FullPath $key -Value $Target -Type String -Force
+  $result += Set-RegValue -FullPath $key -Value $Target -Type String -Force
+
+  $result = $result | Where-Object { $_ -ne $null }
+  return $result
 }
 
 function Invoke-SHChangeNotify {
@@ -918,6 +1023,8 @@ function Invoke-SHChangeNotify {
 
 function New-FileAssoc {
   <#
+  .VERSION 2023.04.29
+
   .SYNOPSIS
   Creates a new (basic) file association.
 
@@ -945,7 +1052,8 @@ function New-FileAssoc {
     [Parameter(Mandatory = $true)][string]$Extension,
     [Parameter(Mandatory = $true)][string]$ExePath,
     [Parameter(Mandatory = $false)][string]$Params,
-    [Parameter(Mandatory = $false)][string]$IconPath
+    [Parameter(Mandatory = $false)][string]$IconPath,
+    [Parameter(Mandatory = $false)][string]$FriendlyAppName
   )
 
   $Extension = $Extension.ToLower() -replace '^\.', '' # Remove trailing dot if supplied by accident
@@ -954,20 +1062,32 @@ function New-FileAssoc {
   if ([string]::IsNullOrEmpty($Params)) { $Params = "`"%1`"" }
   $OpenCmd = "$ExePath $Params"
 
+  $result = @()
+
   $AppRegKey = "HKCU:\SOFTWARE\Classes\Applications\${ExeName}\shell\open\command\(Default)"
-  Set-RegValue -FullPath $AppRegKey -Value $OpenCmd -Type REG_EXPAND_SZ -Force
+  $result += Set-RegValue -FullPath $AppRegKey -Value $OpenCmd -Type REG_EXPAND_SZ -Force
 
   $OpenWithRegKey = "HKCU:\SOFTWARE\Classes\.${Extension}\OpenWithList\${ExeName}\(Default)"
-  Set-RegValue -FullPath $OpenWithRegKey -Value $null -Type REG_SZ -Force
+  $result += Set-RegValue -FullPath $OpenWithRegKey -Value $null -Type REG_SZ -Force
 
   if ($IconPath) {
     $IconRegKey = "HKCU:\SOFTWARE\Classes\Applications\${ExeName}\DefaultIcon\(Default)"
-    Set-RegValue -FullPath $IconRegKey -Value $IconPath -Type REG_EXPAND_SZ -Force
+    $result += Set-RegValue -FullPath $IconRegKey -Value $IconPath -Type REG_EXPAND_SZ -Force
   }
+
+  if ($FriendlyAppName) {
+    $AppRegPath = "HKCU:\SOFTWARE\Classes\Applications\${ExeName}\FriendlyAppName"
+    $result += Set-RegValue -FullPath $AppRegPath -Value $FriendlyAppName -Type REG_SZ -Force
+  }
+
+  $result = $result | Where-Object { $_ -ne $null }
+  return $result
 }
 
 function New-FileAssocExt {
   <#
+  .VERSION 2023.04.22
+
   .SYNOPSIS
   New File Assoc *EXTENDED* function; meaning an app registration is also created, eg. 7-Zip.zip
   Useful when multiple file types are associated with the same app; but they get different icons assigned.
@@ -1012,6 +1132,7 @@ function New-FileAssocExt {
     [Parameter(Mandatory = $false)][string]$AppRegSuffix,
     [Parameter(Mandatory = $false)][string]$Verb,
     [Parameter(Mandatory = $false)][string]$VerbLabel,
+    [Parameter(Mandatory = $false)][string]$FriendlyAppName,
     [Parameter(Mandatory = $false)][switch]$Force
   )
 
@@ -1024,33 +1145,43 @@ function New-FileAssocExt {
   if ([string]::IsNullOrEmpty($Params)) { $Params = "`"%1`"" }
   $OpenCmd = "$ExePath $Params"
 
+  $result = @()
+
   $AppRegPath = "HKCU:\SOFTWARE\Classes\${AppRegName}\shell\${Verb}\command\(Default)"
-  Set-RegValue -FullPath $AppRegPath -Value $OpenCmd -Type REG_SZ -Force
+  $result += Set-RegValue -FullPath $AppRegPath -Value $OpenCmd -Type REG_SZ -Force
 
   if ($IconPath) {
     $IconRegKey = "HKCU:\SOFTWARE\Classes\${AppRegName}\DefaultIcon\(Default)"
-    Set-RegValue -FullPath $IconRegKey -Value $IconPath -Type REG_SZ -Force
+    $result += Set-RegValue -FullPath $IconRegKey -Value $IconPath -Type REG_SZ -Force
   }
 
   if ($VerbLabel) {
     $LabelRegKey = "HKCU:\SOFTWARE\Classes\${AppRegName}\shell\${Verb}\(Default)"
-    Set-RegValue -FullPath $LabelRegKey -Value $VerbLabel -Type REG_SZ -Force
+    $result += Set-RegValue -FullPath $LabelRegKey -Value $VerbLabel -Type REG_SZ -Force
   }
 
   if ($Description) {
     $DescriptionPath = "HKCU:\SOFTWARE\Classes\${AppRegName}\(Default)"
-    Set-RegValue -FullPath $DescriptionPath -Value $Description -Type REG_SZ -Force
+    $result += Set-RegValue -FullPath $DescriptionPath -Value $Description -Type REG_SZ -Force
+  }
+
+  if ($FriendlyAppName) {
+    $AppRegPath = "HKCU:\SOFTWARE\Classes\Applications\$((Get-Item $ExePath).Name)\FriendlyAppName"
+    $result += Set-RegValue -FullPath $AppRegPath -Value $FriendlyAppName -Type REG_SZ -Force
   }
 
   $ExtRegPath = "HKCU:\SOFTWARE\Classes\.${Extension}\(Default)"
-  Set-RegValue -FullPath $ExtRegPath -Value $AppRegName -Type REG_SZ -Force
+  $check = Get-RegValue -FullPath $ExtRegPath -ErrorAction SilentlyContinue
+  if ((!$check) -or (($Check -ne $AppRegName) -and $Force)) {
+    $result += Set-RegValue -FullPath $ExtRegPath -Value $AppRegName -Type REG_SZ -Force
+  }
 
   if ($Force) {
     $UserChoicePath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Extension}\UserChoice"
     if (Test-Path -LiteralPath $UserChoicePath) {
       Write-DebugLog "Removing existing user choice for file extension .${Extension}: ${UserChoicePath}"
       $TempFile = "$env:TEMP\RemoveUserChoice_${Extension}.reg"
-      Write-DebugLog "Temp reg file: $TempFile"
+      Write-DebugLog "Temp reg file: $TempFile" -LogLevel Verbose
 
       $UserChoiceDelReg = @"
 Windows Registry Editor Version 5.00
@@ -1058,13 +1189,16 @@ Windows Registry Editor Version 5.00
 "@
       Set-Content $TempFile $UserChoiceDelReg -Force
       # This will elevate to admin at each schedule, not great.
-      regedit /s $TempFile
+      regedit / s $TempFile | Out-Null
       if ($DebugPreference -ne 'Continue') {
-        Remove-Item $TempFile -Force
+        Remove-Item $TempFile -Force -ErrorAction SilentlyContinue
       }
       
     }
   }
+
+  $result = $result | Where-Object { $_ -ne $null }
+  return $result
 }
 
 ###
@@ -1151,6 +1285,8 @@ function Add-UserPaths {
     Write-DebugLog "Adding the following paths to user %PATH%:`n- $($NewPathsDiff -join "`n- ")`n"
     [Environment]::SetEnvironmentVariable('Path', "$newEnvTargetUser", [System.EnvironmentVariableTarget]::User)
   }
+
+  return $newEnvTargetUser
 }
 
 function Remove-UserPaths {
@@ -1243,7 +1379,7 @@ function Get-ExeVersion {
     [string]$Path
   )
 
-  $version = (Get-Item $Path).VersionInfo.FileVersionRaw
+  $version = (Get-Item $Path).VersionInfo.FileVersionRaw.ToString()
   return $version
 }
 
@@ -1267,15 +1403,21 @@ function Set-FolderComment {
   }
 
   $IniPath = "$Path\desktop.ini"
-  if (!(Test-Path $IniPath)) {
+  
+  $result = $false
+
+  if (Get-Content -Path $IniPath -ErrorAction SilentlyContinue | Select-String -SimpleMatch "InfoTip=$Comment") {
+    Write-DebugLog "Folder comment at $Path already set to ``$Comment``."
+  }
+  elseif (!(Test-Path $IniPath)) {
     # Create the file from scratch if it doesn't exist
     $Content = @"
 [.ShellClassInfo]
 InfoTip=$Comment
 "@
     Set-Content -Path $IniPath -Value $Content
+    $result = $true
   }
-
   else {
     # Update the File
     $Content = (Get-Content $IniPath ) -as [Collections.ArrayList]
@@ -1297,15 +1439,63 @@ InfoTip=$Comment
     }
 
     $Content | Set-Content -Path $IniPath -Force
+    $result = $true
   }
 
   # Check Attributes
-  $IniFile = Get-ChildItem $IniPath -Force
+  $IniFile = Get-Item $IniPath -Force
   $IniAttr = $IniFile.Attributes
-
   if ($IniAttr -notlike '*Hidden*' -or $IniAttr -notlike '*System*') {
-    $IniFile.Attributes = 'Hidden', 'System'
+    Set-ItemProperty -Path $IniFile -Name Attributes -Value ([System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System)
+    $result = $true
   }
+
+  $FolderAttr = (Get-Item $Path).Attributes -split ', '
+  if ('ReadOnly' -notin $FolderAttr) {
+    Set-ItemProperty -Path $Path -Name Attributes -Value ([System.IO.FileAttributes]::ReadOnly)
+    $result = $true
+  }
+
+  return $result
+}
+
+function Invoke-FilePicker {
+  <#
+  .VERSION 2023.04.22
+  
+  #>
+  param(
+    [string]$Path,
+    [string]$Filter = 'All files (*.*)|*.*',
+    [bool]$Multiselect = $false
+  )
+
+  # Load the assembly
+  Add-Type -AssemblyName System.Windows.Forms
+
+  if (!$Path) {
+    $Path = Get-Location
+  }
+  else {
+    $Path = Resolve-Path $Path
+  }
+
+  # Create a new OpenFileDialog object
+  $fileDialog = New-Object System.Windows.Forms.OpenFileDialog
+
+  # Set the dialog properties
+  $fileDialog.Title = 'Select a file'
+  $fileDialog.InitialDirectory = $Path
+  $fileDialog.Multiselect = $Multiselect
+  $fileDialog.Filter = $Filter
+
+  # Show the dialog and get the result
+  if ($fileDialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
+    return
+  }
+
+  $selectedFile = $fileDialog.FileNames
+  return $selectedFile
 }
 
 ###
@@ -1314,6 +1504,8 @@ InfoTip=$Comment
 
 function Install-Font {
   <#
+  .VERSION 2023.04.22
+
   .SYNOPSIS
   Installs a font file (.ttf, .otf, etc).
   Don't remember exactly if it's in the user or machine scope.
@@ -1325,7 +1517,17 @@ function Install-Font {
   param(
     [string]$SourcePath
   )
-  (New-Object -ComObject Shell.Application).Namespace(0x14).CopyHere($SourcePath, 0x14);
+
+  $UserFontPath = "$($env:SystemDrive)\Users\$env:UserName\AppData\Local\Microsoft\Windows\Fonts\"
+  $FontName = Split-Path $SourcePath -Leaf
+  if (Test-Path "$UserFontPath\$FontName") {
+    Write-DebugLog 'Font already installed.' -LogLevel Debug
+    return
+  }
+
+  Write-Debug "Installing font from $SourcePath"
+  $result = (New-Object -ComObject Shell.Application).Namespace(0x14).CopyHere($SourcePath, 0x14)
+  return $result
 }
 
 ###
@@ -1372,7 +1574,7 @@ function Get-StreamContent {
     [Parameter()][ValidateSet('Default', 'Byte')][string]$Encoding = 'Default'
   )
   $Path = Resolve-Path $Path
-  $result = cmd /c dir $Path /r | Select-String -SimpleMatch ":$StreamName"
+  $result = cmd / c dir $Path / r | Select-String -SimpleMatch ":$StreamName"
   if ($null -ne $result) {
     $Path = Resolve-Path $Path
     $streamPath = $Path + ":$StreamName"
@@ -1416,12 +1618,31 @@ Function Set-DropboxIgnoredPath {
     }
   }
 
+  $result = $false # Nothing has been done yet
+  
   if (!$Unignore) {
-    Set-Content -Path $Path -Stream com.dropbox.ignored -Value 1
+    $check = Get-Content -Path $Path -Stream com.dropbox.ignored -ErrorAction SilentlyContinue
+    if ($check -ne 1) {
+      Set-Content -Path $Path -Stream com.dropbox.ignored -Value 1 -ErrorAction Stop
+      $result = $true
+    }
   }
   else {
-    Clear-Content -Path $Path -Stream com.dropbox.ignored
+    try {
+      $check = $true
+      $check = Get-Content -Path $Path -Stream com.dropbox.ignored -ErrorAction Stop
+    }
+    catch {
+      $check = $false
+    }
+
+    if ($check) {
+      Clear-Content -Path $Path -Stream com.dropbox.ignored -ErrorAction Stop
+      $result = $true
+    }
   }
+
+  return $result
 }
 
 Function Get-DropboxIgnoredPath {
@@ -1517,7 +1738,7 @@ Function Set-DropboxItemOfflineMode {
   if ($null -eq $actionVerb) {
     if ($verbs | Where-Object { $_.Name -eq $VerbTexts[($Modes[$Mode] + 1) % 2] }) {
       # Write-Debug "$Path is already in $Mode mode."
-      return
+      return $false
     }
     else {
       Write-Verbose "$($verbs | Out-String)"
@@ -1527,6 +1748,7 @@ Function Set-DropboxItemOfflineMode {
 
   try {
     $actionVerb.DoIt()
+    return $true
   }
   catch {
     switch ($ErrorAction) {

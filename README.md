@@ -49,7 +49,7 @@ A collection of useful PowerShell functions and classes that I use in my scripts
 | Update-PathsInShell              | Updates the %PATH% environment variable in the current shell.                          |
 | Get-ExeVersion                   | Returns the version information of an executable.                                      |
 | Set-FolderComment                | Sets a Windows Explorer comment on a folder. (not fully working)                       |
-| Install-Font                     | Installs a font from a file.                                                           |
+| Install-Font                     | Installs a font from a file for the current user.                                      |
 | Get-DropboxInstallPath           | Returns the path of the Dropbox data sync folder.                                      |
 | Get-StreamContent                | Returns the content of an NTFS stream as a string.                                     |
 | Set-DropboxIgnoredPath           | Sets a path to be ignored by Dropbox                                                   |
