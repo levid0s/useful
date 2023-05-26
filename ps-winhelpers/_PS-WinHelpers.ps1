@@ -414,14 +414,14 @@ Function Get-SubstedPaths {
 
 Function Get-RealPath {
   <#
-  .VERSION 20230406
+  .VERSION 20230526
 
   .SYNOPSIS
   Returns the real path of a file or folder if the current path is on a substed drive
 
   .DESCRIPTION
-  Checks if the path is substed and returns the real path.
-  Otherwise returns the current path.
+  ✓ If path is a substed drive, it's resolved to the real location
+  ✓ If path is a symlink or junction, it's resolved to the real location
 
   .EXAMPLE
   Get-RealPath
@@ -439,11 +439,18 @@ Function Get-RealPath {
   $SubstedPaths = Get-SubstedPaths
   if ($SubstedPaths.Keys -contains $Path.Substring(0, 2)) {
     $RealPath = $SubstedPaths[$Path.Substring(0, 2)] + $Path.Substring(2).TrimEnd('\')
-    return $RealPath
   }
   else {
-    return $Path.TrimEnd('\')
+    $RealPath = $Path.TrimEnd('\')
   }
+  $RealPath = Get-Item -Path $RealPath
+  if ($RealPath.Target) {
+    $RealPath = $RealPath.Target
+  }
+  else {
+    $RealPath = $RealPath.FullName
+  }
+  return $RealPath
 }
 
 function Get-RealGitRoot {
