@@ -414,7 +414,7 @@ Function Get-SubstedPaths {
 
 Function Get-RealPath {
   <#
-  .VERSION 20230526
+  .VERSION 20230619
 
   .SYNOPSIS
   Returns the real path of a file or folder if the current path is on a substed drive
@@ -422,15 +422,18 @@ Function Get-RealPath {
   .DESCRIPTION
   ✓ If path is a substed drive, it's resolved to the real location
   ✓ If path is a symlink or junction, it's resolved to the real location
+  ✓ Use -Go parameter to change the shell location instead of returning the path
 
   .EXAMPLE
   Get-RealPath
   Get-RealPath .
   Get-RealPath n:\tools
+  Get-RealPath -Go # will Push-Location to real directory
   #>
 
   param(
-    [string]$Path
+    [string]$Path,
+    [switch]$Go
   )
   if ([string]::IsNullOrEmpty($Path)) {
     $Path = $PWD.Path
@@ -450,7 +453,12 @@ Function Get-RealPath {
   else {
     $RealPath = $RealPath.FullName
   }
-  return $RealPath
+  if ($Go) {
+    Push-Location $RealPath
+  }
+  else {
+    return $RealPath
+  }
 }
 
 function Get-RealGitRoot {
