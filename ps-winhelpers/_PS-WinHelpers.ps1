@@ -1571,7 +1571,7 @@ Function Get-DropboxInstallPath {
 
 function Get-StreamContent {
   <#
-  .VERSION 20230410
+  .VERSION 20230722
 
   .SYNOPSIS
   Get the content of an NTFS file or directory stream
@@ -1589,7 +1589,7 @@ function Get-StreamContent {
     [Parameter()][ValidateSet('Default', 'Byte')][string]$Encoding = 'Default'
   )
   $Path = Resolve-Path $Path
-  $result = cmd / c dir $Path / r | Select-String -SimpleMatch ":$StreamName"
+  $result = cmd '/c' dir $Path '/r' | Select-String -SimpleMatch ":$StreamName"
   if ($null -ne $result) {
     $Path = Resolve-Path $Path
     $streamPath = $Path + ":$StreamName"
