@@ -695,15 +695,15 @@ function Set-RegValue {
 
 function Register-PowerShellScheduledTask {
   <#
-  .VERSION 20230407
+  .VERSION 2023.10.02
 
   .SYNOPSIS
-  Registers a PowerShell script as a **Hidden** Scheduled Task.
+  Registers a PowerShell script as a **Hidden** Scheduled Task, ie a PowerShell window will not pop up during execution.
   At the moment the schedule frequency is hardcoded to every 15 minutes.
 
   .DESCRIPTION
-  Currently, it's not possible create a hidden Scheduled Task that executes a PowerShell task.
-  A command window will keep popping up every time the task is run.
+  Currently, it's not possible create a hidden Scheduled Task that executes a PowerShell task, meaning a command prompt
+  window will keep popping up every time the scheduled task is executed.
   This function creates a wrapper vbs script that runs the PowerShell script as hidden.
   source: https://github.com/PowerShell/PowerShell/issues/3028
 
@@ -738,13 +738,17 @@ function Register-PowerShellScheduledTask {
   Eg: "BUILTIN\Administrators"
 
   .PARAMETER TimeInterval
-  The Scheduled Task will be run every X minutes.
+  The Scheduled Task will be triggered every X minutes.
 
   .PARAMETER AtLogon
   The Scheduled Task will be run at user logon.
 
   .PARAMETER AtStartup
   The Scheduled Task will be run at system startup. Requires admin rights.
+
+  .PARAMETER DailyAt
+  Start the task Daily at the specified time. Eg: "04:05"
+
   #>
 
   param(
@@ -754,6 +758,7 @@ function Register-PowerShellScheduledTask {
     [int]$TimeInterval,
     [switch]$AtLogon,
     [switch]$AtStartup,
+    [string]$DailyAt,
     [bool]$AllowRunningOnBatteries,
     [switch]$DisallowHardTerminate,
     [TimeSpan]$ExecutionTimeLimit,
@@ -762,8 +767,8 @@ function Register-PowerShellScheduledTask {
     [switch]$Uninstall
   )
 
-  if (!($TimeInterval -or $AtLogon -or $AtStartup -or $Uninstall)) {
-    Throw 'At least one of the following parameters must be defined: -TimeInterval, -AtLogon, -AtStartup, (or -Uninstall)'
+  if (!($TimeInterval -or $AtLogon -or $AtStartup -or $Uninstall -or $DailyAt)) {
+    Throw 'At least one of the following parameters must be defined: -TimeInterval, -AtLogon, -AtStartup, -DailyAt (or -Uninstall)'
   }
 
   if ([string]::IsNullOrEmpty($TaskName)) {
@@ -800,8 +805,19 @@ function Register-PowerShellScheduledTask {
 
   $ps = @(); $Parameters.GetEnumerator() | ForEach-Object { $ps += "-$($_.Name) $($_.Value)" }; $ps -join ' '
   $vbsScript = @"
-Dim shell,command
-command = "powershell.exe -nologo -File $ScriptPath $ps"
+Dim shell, command, showWindow
+showWindow = 0
+' Check for Debug argument
+Dim i, arg
+For i = 0 To WScript.Arguments.Count - 1
+    arg = LCase(WScript.Arguments(i))
+    If arg = "-debug" Or arg = "/debug" Then
+				' Debug 
+				showWindow = 1
+        Exit For
+    End If
+Next
+command = "powershell.exe -nologo -Command $ScriptPath $ps"
 Set shell = CreateObject("WScript.Shell")
 shell.Run command, 0, true
 "@
@@ -831,6 +847,9 @@ shell.Run command, 0, true
   }
   if ($AtStartUp) {
     $triggers += New-ScheduledTaskTrigger -AtStartup
+  }
+  if ($DailyAt) {
+    $triggers += New-ScheduledTaskTrigger -Daily -At $DailyAt
   }
     
   ## Additional Options
