@@ -1710,7 +1710,7 @@ Function Set-DropboxItemOfflineMode {
   if (!(Test-Path $Path)) {
     switch ($ErrorAction) {
       'SilentlyContinue' { return }
-      'Continue' { Write-Error "1Error: Path $Path not found." }
+      'Continue' { Write-Error "Error: Path $Path not found." }
       'Stop' { Throw "Error: Path $Path not found." }
     }
   }
