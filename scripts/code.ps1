@@ -1,5 +1,5 @@
 <#
-.VERSION 20230415
+.VERSION 20240122
 
 .SYNOPSIS
 Resolves the path of $args[0] if it's on a substed drive, so that Git Gutters will work properly in VS Code.
@@ -30,13 +30,16 @@ Write-Output "[$($MyInvocation.MyCommand.Path)] Starting VS Code loader .."
 
 $Location = $args[0]
 if ([string]::IsNullOrEmpty($Location)) {
-  $Location = $PWD.Path
+    $Location = $PWD.Path
 }
-# Get the real path of the target
-$dst = Get-RealGitRoot $Location
 
-Write-Debug "Real path is: $dst"
+if ((Get-Item $Location).PSIsContainer -eq $true) {
+    # Get the real path of the target
+    $Location = Get-RealGitRoot $Location
+}
 
-code.cmd $dst
+Write-Debug "Real path is: $Location"
+
+code.cmd $Location
 
 Refresh-Path | Out-Null

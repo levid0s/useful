@@ -27,7 +27,7 @@ Write-Output "[$($MyInvocation.MyCommand.Path)] Starting VS Code loader .."
 
 $Location = $args[0]
 if ([string]::IsNullOrEmpty($Location)) {
-  $Location = $PWD.Path
+    $Location = $PWD.Path
 }
 # Get the real path of the target
 $dst = Get-RealGitRoot $Location
