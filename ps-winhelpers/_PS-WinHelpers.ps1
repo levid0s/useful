@@ -479,10 +479,17 @@ function Get-RealGitRoot {
   #>
 
   param(
-    [Parameter(Mandatory = $true)][string]$Location
+    [Parameter(Mandatory = $true)][string]$Location,
+    [bool]$ResolveSubst = $true
   )
 
-  $RealPath = Get-RealPath $Location
+  if ($ResolveSubst) {
+      $RealPath = Get-RealPath $Location
+  }
+  else {
+      $RealPath = Resolve-Path $Location | Select -ExpandProperty Path
+  }
+
   if (Test-Path $RealPath) {
     $CheckPath = $RealPath
     if (!(Test-Path $CheckPath -Type Container)) {
