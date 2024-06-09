@@ -27,26 +27,72 @@ $selectedPath = get-item c:\ | ccd -PassThru
 
 [CmdletBinding()]
 param(
-  [Parameter(ValueFromPipeline = $true)][string]$Path,
-  [switch]$PassThru
+    [Parameter(ValueFromPipeline = $true)][string]$Path,
+    [switch]$PassThru,
+    [switch]$FileBrowser,
+    [switch]$Relative
 )
 
 if (!$Path) {
-  $Path = $pwd.Path
+    $Path = $pwd.Path
+
+    if ($FileBrowser) {
+        $IsDir = Test-Path -Path $path -PathType Container
+        if ($IsDir) {
+            $Path = $Path + "\."
+        }
+    }
 }
 
 [System.Reflection.Assembly]::LoadWithPartialName('System.windows.forms') | Out-Null
-$foldername = New-Object System.Windows.Forms.FolderBrowserDialog
-$foldername.Description = 'Select a folder'
-$foldername.rootfolder = 'MyComputer'
-$foldername.SelectedPath = $Path
 
-if ($foldername.ShowDialog() -ne 'OK') {
-  return
+Write-Output "Path: $PATH"
+if (!$FileBrowser) {
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = 'Select a folder'
+    $dialog.rootfolder = 'MyComputer'
+    $dialog.SelectedPath = $Path
 }
+else {
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = 'Select a File or Folder'
+    $dialog.InitialDirectory = $Path
+    $dialog.Filter = 'All files (*.*)|*.*'
+    $dialog.CheckFileExists = $false
+    $dialog.CheckPathExists = $true
+    $dialog.DereferenceLinks = $true
+    $dialog.ValidateNames = $false
+    $dialog.ShowReadOnly = $true
+    $dialog.FileName = $Path
+}
+
+$response = $dialog.ShowDialog()
+
+if ($response -ne 'OK') {
+    return
+}
+
+if (!$FileBrowser) {
+    $result = $dialog.SelectedPath
+}
+else {
+    $result = $dialog.FileName
+}
+
+if ($Relative) {
+    $result = Resolve-Path -Path $result -Relative
+}
+
 
 if ($PassThru) {
-  return $foldername.SelectedPath
+    return $result
 }
 
-Push-Location $foldername.SelectedPath
+
+if (!$FileBrowser) {
+    Push-Location $result
+}
+else {
+    Write-Output "Opening: $result"
+    & $result
+}
