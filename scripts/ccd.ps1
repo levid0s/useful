@@ -1,7 +1,7 @@
 <#PSScriptInfo
-.VERSION      2023.04.15
+.VERSION      2024.06.09
 .AUTHOR       Levente Rog
-.COPYRIGHT    (c) 2023 Levente Rog
+.COPYRIGHT    (c) 2024 Levente Rog
 .LICENSEURI   https://github.com/levid0s/useful/blob/master/LICENSE.md
 .PROJECTURI   https://github.com/levid0s/useful/
 #>
@@ -20,7 +20,7 @@ popd
 ccd d:\
 "d:\" | ccd
 
-# Don't change dir, just return the selected path
+# To return the selected path as a string instead of changing the directory:
 $selectedPath = ccd -PassThru
 $selectedPath = get-item c:\ | ccd -PassThru
 #>
@@ -46,7 +46,6 @@ if (!$Path) {
 
 [System.Reflection.Assembly]::LoadWithPartialName('System.windows.forms') | Out-Null
 
-Write-Output "Path: $PATH"
 if (!$FileBrowser) {
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
     $dialog.Description = 'Select a folder'
@@ -93,6 +92,6 @@ if (!$FileBrowser) {
     Push-Location $result
 }
 else {
-    Write-Output "Opening: $result"
+    Write-Host "Opening: $result"
     & $result
 }

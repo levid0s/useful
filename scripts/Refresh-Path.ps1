@@ -46,11 +46,11 @@ function Get-EnvPathsArr {
 $pathsRegistry = $(Get-EnvPathsArr) -join ';'
 
 if ($pathsRegistry -ne $env:Path) {
-	Write-Output "${actionVerb}: Refreshing %PATH% in current shell..."		
+	Write-Output "Refreshing %PATH% in current shell..."		
 	$env:Path = $(Get-EnvPathsArr) -join ';'
 }
 else {
-	Write-Output "${actionVerb}: %PATH% already up to date."
+	Write-Output "%PATH% already up to date."
 }
 
 Write-Output ''
