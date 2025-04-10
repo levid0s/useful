@@ -1,8 +1,14 @@
+[CmdletBinding()]
+param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [System.Collections.ArrayList]$listArgs = @()
+)
+
 <#
-.VERSION 20240122
+.VERSION 2025.04.09
 
 .SYNOPSIS
-Resolves the path of $args[0] if it's on a substed drive, so that Git Gutters will work properly in VS Code.
+Resolves the path of $args[-1] if it's on a substed drive, so that Git Gutters will work properly in VS Code.
 Opens VS Code in the Git root if it's a git folder
 
 .DESCRIPTION
@@ -21,25 +27,32 @@ code n:\src\repo1
 ```
 #>
 
-Write-Output "[$($MyInvocation.MyCommand.Path)] Starting VS Code loader .."
-# Name and path of current script:
-# $MyInvocation.MyCommand.Name
-# $MyInvocation.MyCommand.Path
+Write-Host "[$($MyInvocation.MyCommand.Path)] Starting VS Code loader .."
 
 . "$PSScriptRoot/../ps-winhelpers/_PS-WinHelpers.ps1"
 
-$Location = $args[0]
-if ([string]::IsNullOrEmpty($Location)) {
-    $Location = $PWD.Path
+if ($listArgs.Count -eq 0) {
+    Write-Verbose "No args provided, using [git_root]`$PWD."
+    $listArgs += $PWD.Path
 }
 
-if ((Get-Item $Location).PSIsContainer -eq $true) {
-    # Get the real path of the target
-    $Location = Get-RealGitRoot $Location
+$LastArg = $listArgs[-1]
+Write-Verbose "Last arg is: ``$LastArg``"
+
+if ($LastArg -notmatch '^-') {
+    Write-Verbose "Last arg is not switch, checking if it's folder."
+
+    if ((Get-Item $LastArg -ErrorAction SilentlyContinue).PSIsContainer -eq $true) {
+        Write-Verbose "Last arg is folder, looking up git root."
+        $Location = Get-RealGitRoot $LastArg -SubstLookup:$False | Select-Object -ExpandProperty Path -ErrorAction SilentlyContinue
+        $listArgs[-1] = $Location
+    }
+    else {
+        Write-Verbose "Last arg is file or doesn't exist, no lookup needed"
+    }
 }
 
-Write-Debug "Real path is: $Location"
+Write-Host "[$($MyInvocation.MyCommand.Path)] EXEC: code.cmd $listArgs"
+code.cmd $listArgs
 
-code.cmd $Location
-
-Refresh-Path | Out-Null
+New-Alias code. code
