@@ -473,9 +473,13 @@ function Get-RealGitRoot {
   ✓ If path is inside a git repo, it's resolved to the git root
   ✓ If path is pointing to a file, it's resolved to the parent directory
 
+  .PARAM SubstLookup
+  Disable Subst lookup using -SubstLookup:$False
+
   .EXAMPLE
   Get-RealGitRoot .
   Get-RealGitRoot n:/src/useful/scripts
+
   #>
 
   param(
@@ -1402,6 +1406,74 @@ function Update-PathsInShell {
   Write-DebugLog 'Refreshing %PATH% in current shell..'
   $env:Path = $pathsInRegistry -join ';'
 }
+
+function Get-EnvironmentVariableNames([System.EnvironmentVariableTarget] $Scope) {
+  <#
+  .SYNOPSIS
+  Gets all environment variable names.
+  
+  .DESCRIPTION
+  Provides a list of environment variable names based on the scope. This
+  can be used to loop through the list and generate names.
+  
+  .OUTPUTS
+  A list of environment variables names.
+  
+  .PARAMETER Scope
+  The environment variable target scope. This is `Process`, `User`, or `Machine`.
+  
+  .EXAMPLE
+  Get-EnvironmentVariableNames -Scope Machine
+  
+  #>
+  
+  # Do not log function call
+  
+  # HKCU:\Environment may not exist in all Windows OSes (such as Server Core).
+  switch ($Scope) {
+    'User' { Get-Item 'HKCU:\Environment' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property }
+    'Machine' { Get-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' | Select-Object -ExpandProperty Property }
+    'Process' { Get-ChildItem Env:\ | Select-Object -ExpandProperty Key }
+    default { throw "Unsupported environment scope: $Scope" }
+  }
+}
+
+function Refresh-Env {
+  [CmdletBinding()]
+  param()
+
+  # Filter out Machine envs where a User env with the same name overrides it
+  $UserEnvs = Get-EnvironmentVariableNames -Scope User
+
+  Get-EnvironmentVariableNames -Scope Machine | ? { $_ -ine 'Path' -and $_ -inotin $UserEnvs } | % {
+    $CurrentValue = Get-Item "env:$_" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Value
+    $NewValue = [Environment]::GetEnvironmentVariable($_, [EnvironmentVariableTarget]::Machine)
+    Write-Verbose "Checking: $_= $CurrentValue -> $NewValue"
+    if ($CurrentValue -ne $NewValue) {
+      Write-Information -InformationAction Continue "Updating: $_=`"$NewValue`""
+      Set-Item -Path "env:$_" -Value $NewValue
+    }
+  }
+
+  Get-EnvironmentVariableNames -Scope User | ? { $_ -ine 'Path' } | % {
+    $CurrentValue = Get-Item "env:$_" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Value
+    $NewValue = [Environment]::GetEnvironmentVariable($_, [EnvironmentVariableTarget]::User)
+    Write-Verbose "Checking: $_= $CurrentValue -> $NewValue"
+
+    if ($CurrentValue -ne $NewValue) {
+      Write-Information -InformationAction Continue "Updating: ${_}: `"$CurrentValue`" -> `"$NewValue`""
+      Set-Item -Path "env:$_" -Value $NewValue
+    }
+  }
+
+  $NewPaths = [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::Machine) + ";" + [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::User)
+  $NewPaths = $NewPaths -replace ';;', ';'
+  if ($env:PATH -ne $NewPaths) {
+    Write-Information -InformationAction Continue "Updating: PATH:`n$env:PATH ->`n$NewPaths"
+    $env:PATH = $NewPaths
+  }
+}
+
 
 ###
 ###  Folders

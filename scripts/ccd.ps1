@@ -45,6 +45,12 @@ if (!$Path) {
 }
 
 [System.Reflection.Assembly]::LoadWithPartialName('System.windows.forms') | Out-Null
+$foldername = New-Object System.Windows.Forms.FolderBrowserDialog
+# $foldername = New-Object System.Windows.Forms.FileBr
+
+$foldername.Description = 'Select a folder'
+$foldername.rootfolder = 'MyComputer'
+$foldername.SelectedPath = $Path
 
 if (!$FileBrowser) {
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
