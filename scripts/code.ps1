@@ -44,7 +44,7 @@ if ($LastArg -notmatch '^-') {
 
     if ((Get-Item $LastArg -ErrorAction SilentlyContinue).PSIsContainer -eq $true) {
         Write-Verbose "Last arg is folder, looking up git root."
-        $Location = Get-RealGitRoot $LastArg -SubstLookup:$False | Select-Object -ExpandProperty Path -ErrorAction SilentlyContinue
+        $Location = Get-RealGitRoot $LastArg -ResolveSubst:$False | Select-Object -ExpandProperty Path -ErrorAction SilentlyContinue
         $listArgs[-1] = $Location
     }
     else {

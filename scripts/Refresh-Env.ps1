@@ -1,7 +1,7 @@
 <#PSScriptInfo
-.VERSION      2024.06.09
+.VERSION      2025.04.12
 .AUTHOR       Levente Rog
-.COPYRIGHT    (c) 2024 Levente Rog
+.COPYRIGHT    (c) 2025 Levente Rog
 .LICENSEURI   https://github.com/levid0s/useful/blob/master/LICENSE.md
 .PROJECTURI   https://github.com/levid0s/useful/
 #>
@@ -15,28 +15,63 @@ Useful when new apps have been installed and you don't want to close your shell.
 Refresh-Env.ps1
 #>
 
-function Update-EnvironmentVariable ($key, $newValue) {
-    $currentValue = [System.Environment]::GetEnvironmentVariable($key, [EnvironmentVariableTarget]::Process)
-    if ($newValue -ne $currentValue) {
-        Write-Output "Updated: ${key}: $currentValue -> $newValue"
-        [System.Environment]::SetEnvironmentVariable($key, $newValue, [EnvironmentVariableTarget]::Process)
+[CmdletBinding()]
+param()
+
+function Get-EnvironmentVariableNames([System.EnvironmentVariableTarget] $Scope) {
+    <#
+    .SYNOPSIS
+    Gets all environment variable names.
+    
+    .DESCRIPTION
+    Provides a list of environment variable names based on the scope. This
+    can be used to loop through the list and generate names.
+    
+    .OUTPUTS
+    List of environment variables names: [string[]]
+    
+    .PARAMETER Scope
+    The environment variable target scope. This is `Process`, `User`, or `Machine`.
+    
+    .EXAMPLE
+    Get-EnvironmentVariableNames -Scope Machine    
+    #>
+    
+    switch ($Scope) {
+        'User' { Get-Item 'HKCU:\Environment' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property }
+        'Machine' { Get-Item 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' | Select-Object -ExpandProperty Property }
+        'Process' { Get-ChildItem Env:\ | Select-Object -ExpandProperty Key }
+        default { throw "Unsupported environment scope: $Scope" }
+    }
+}
+  
+# Filter out Machine envs where a User env with the same name overrides it
+$UserEnvs = Get-EnvironmentVariableNames -Scope User
+
+Get-EnvironmentVariableNames -Scope Machine | ? { $_ -ine 'Path' -and $_ -inotin $UserEnvs } | % {
+    $CurrentValue = Get-Item "env:$_" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Value
+    $NewValue = [Environment]::GetEnvironmentVariable($_, [EnvironmentVariableTarget]::Machine)
+    Write-Verbose "Checking: $_= $CurrentValue -> $NewValue"
+    if ($CurrentValue -ne $NewValue) {
+        Write-Information -InformationAction Continue "Updating: $_=`"$NewValue`""
+        Set-Item -Path "env:$_" -Value $NewValue
     }
 }
 
-$SkipKeys = @("Path", "Username", "PSModulePath", "PATHEXT")
+Get-EnvironmentVariableNames -Scope User | ? { $_ -ine 'Path' } | % {
+    $CurrentValue = Get-Item "env:$_" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Value
+    $NewValue = [Environment]::GetEnvironmentVariable($_, [EnvironmentVariableTarget]::User)
+    Write-Verbose "Checking: $_= $CurrentValue -> $NewValue"
 
-$envs = @{}
+    if ($CurrentValue -ne $NewValue) {
+        Write-Information -InformationAction Continue "Updating: ${_}: `"$CurrentValue`" -> `"$NewValue`""
+        Set-Item -Path "env:$_" -Value $NewValue
+    }
+}
 
-
-$e = [Environment]::GetEnvironmentVariables([EnvironmentVariableTarget]::Machine)
-
-$e.GetEnumerator() | Where-Object { $_.Key -notin $SkipKeys } | ForEach-Object { $envs[$_.Key] = $_.Value }
-
-$e = [Environment]::GetEnvironmentVariables([EnvironmentVariableTarget]::User)
-
-$e.GetEnumerator() | ? {$_.Key -notin $SkipKeys } | ForEach-Object { $envs[$_.Key] = $_.Value }
-
-
-foreach ($key in $envs.Keys) {
-    Update-EnvironmentVariable -key $key -newValue $envs[$key]
+$NewPaths = [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::Machine) + ";" + [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::User)
+$NewPaths = $NewPaths -replace ';;', ';'
+if ($env:PATH -ne $NewPaths) {
+    Write-Information -InformationAction Continue "Updating: PATH:`n$env:PATH ->`n$NewPaths"
+    $env:PATH = $NewPaths
 }

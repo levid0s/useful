@@ -473,8 +473,8 @@ function Get-RealGitRoot {
   ✓ If path is inside a git repo, it's resolved to the git root
   ✓ If path is pointing to a file, it's resolved to the parent directory
 
-  .PARAM SubstLookup
-  Disable Subst lookup using -SubstLookup:$False
+  .PARAM ResolveSubst
+  Disable resolving the target of substed paths with -ResolveSubst:$False
 
   .EXAMPLE
   Get-RealGitRoot .
@@ -488,10 +488,10 @@ function Get-RealGitRoot {
   )
 
   if ($ResolveSubst) {
-      $RealPath = Get-RealPath $Location
+    $RealPath = Get-RealPath $Location
   }
   else {
-      $RealPath = Resolve-Path $Location | Select -ExpandProperty Path
+    $RealPath = Resolve-Path $Location | Select-Object -ExpandProperty Path
   }
 
   if (Test-Path $RealPath) {
