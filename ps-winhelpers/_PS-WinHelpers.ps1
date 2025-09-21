@@ -1699,63 +1699,52 @@ function Get-StreamContent {
 
 Function Set-DropboxIgnoredPath {
   <#
-  .VERSION 20230415
+  .VERSION 20250921
 
   .SYNOPSIS
   Sets a path to be ignored by Dropbox
 
   .EXAMPLE
   Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp'
-  Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp' -Unignore
+  Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp' -Action Add
+  Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp' -Action Remove
   Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp\hello.txt'
-  Set-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp\hello.txt' -Unignore
   #>
 
   [CmdletBinding()]
   param(
-    [string]$Path,
-    [switch]$Unignore
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter()][ValidateSet('Add','Remove')][string]$Action = 'Add'
   )
 
-  $ErrorAction = $PSBoundParameters['ErrorAction']
-  if ([string]::IsNullOrEmpty($ErrorAction)) {
-    Write-Verbose "Setting default value for ErrorAction: 'Stop'"
-    $ErrorAction = 'Stop'
+  
+  if ($PSBoundParameters['Debug']) {
+    $DebugPreference = 'Continue' # Override default 'Enquire'
   }
 
   if (!(Test-Path $Path)) {
-    switch ($ErrorAction) {
-      'SilentlyContinue' { return }
-      'Continue' { Write-Error "1Error: Path $Path not found." }
-      'Stop' { Throw "Error: Path $Path not found." }
-    }
+    Write-Error "Error: Path $Path not found." -ErrorAction Stop -Category ObjectNotFound
   }
 
-  $result = $false # Nothing has been done yet
-  
-  if (!$Unignore) {
-    $check = Get-Content -Path $Path -Stream com.dropbox.ignored -ErrorAction SilentlyContinue
-    if ($check -ne 1) {
-      Set-Content -Path $Path -Stream com.dropbox.ignored -Value 1 -ErrorAction Stop
-      $result = $true
-    }
-  }
-  else {
-    try {
-      $check = $true
-      $check = Get-Content -Path $Path -Stream com.dropbox.ignored -ErrorAction Stop
-    }
-    catch {
-      $check = $false
-    }
+  $check = Get-Content -Path $Path -Stream com.dropbox.ignored -ErrorAction SilentlyContinue
 
-    if ($check) {
-      Clear-Content -Path $Path -Stream com.dropbox.ignored -ErrorAction Stop
-      $result = $true
-    }
+  if ($Action -eq 'Add' -and $check -eq 1) {
+    Write-Verbose "Path already ignored: $Path"
+    return
+  }
+  elseif ($Action -eq 'Remove' -and $null -eq $check) {
+    Write-Verbose "Path not being ignored: $Path"
+    return
   }
 
-  return $result
+  if ($Action -eq 'Add') {
+    Set-Content -Path $Path -Stream com.dropbox.ignored -Value 1 -ErrorAction Stop
+    return
+  }
+  if ($Action -eq 'Remove') {
+    Clear-Content -Path $Path -Stream com.dropbox.ignored -ErrorAction Stop
+    return
+  }
 }
 
 Function Get-DropboxIgnoredPath {
@@ -1763,7 +1752,7 @@ Function Get-DropboxIgnoredPath {
   .VERSION 20230410
 
   .SYNOPSIS
-  Checks if a path is ignored by Dropbox
+  Checks if a path is ignored by Dropbox sync
 
   .EXAMPLE
   Get-DropboxIgnoredPath -Path 'C:\users\admin\Dropbox\Temp'
@@ -1773,16 +1762,89 @@ Function Get-DropboxIgnoredPath {
   #>
 
   param(
-    [string]$Path
+    [Parameter(Mandatory)][string]$Path
   )
 
   $Stream = Get-StreamContent -Path $Path -Stream com.dropbox.ignored
   return !!$stream
 }
 
+Function Get-DropboxItemOfflineMode {
+  <#
+  .VERSION 20250921
+
+  .SYNOPSIS
+  Gets the sync mode of a Dropbox item: Default, OnlineOnly, Offline
+
+  .EXAMPLE
+  Get-DropboxItemOfflineMode -Path 'C:\Dropbox\My\Folder1'
+
+  #>
+
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$Path
+  )
+
+  if ($PSBoundParameters['Debug']) {
+    $DebugPreference = 'Continue' # Override default 'Enquire'
+  }
+
+  if (!(Test-Path $Path)) {
+    Write-Error "Error: Path $Path not found." -ErrorAction Stop -Category ObjectNotFound
+  }
+
+  if (!(Get-Process 'dropbox' -ErrorAction SilentlyContinue)) {
+    Write-Error 'Error: Dropbox is not running.' -ErrorAction Stop -Category ObjectNotFound
+  }
+
+  if (Get-RealPath $Path -ne $Path) {
+    $RealPath = Get-RealPath $Path
+    Write-Debug "Resolving path: $Path -> $RealPath"
+    $Path = $RealPath
+  }
+
+  $shell = New-Object -ComObject Shell.Application
+
+  if (Get-Item -Path $Path | Select-Object -ExpandProperty PSIsContainer) {
+    # Target is a folder
+    $namespace = $shell.Namespace($Path)
+    $item = $namespace.Self
+  }
+  else {
+    # Target is a file
+    $folderPath = Split-Path $filePath -Parent
+    $namespace = $shell.Namespace($folderPath)
+    $item = $namespace.ParseName($fileName)
+  }
+  
+  $verbs = $item.Verbs()
+  $VerbNames = $verbs | ForEach-Object { $_.Name }
+
+  if (!($VerbNames -like '*dropbox*')) {
+    Write-Error "Error: Item context menu doesn't contain Dropbox: $Path" -ErrorAction Stop -Category ObjectNotFound
+  }
+
+  $HasMakeOnlineOnly = $VerbNames -contains 'Make online-only'
+  $HasMakeAvailableOffline = $VerbNames -contains 'Make available offline'
+
+  $Result = $Null
+  if ($HasMakeOnlineOnly -and $HasMakeAvailableOffline) {
+    $Result = 'Default'
+  }
+  elseif (!$HasMakeAvailableOffline) {
+    $Result = 'Offline'
+  }
+  elseif (!$HasMakeOnlineOnly) {
+    $Result = 'OnlineOnly'
+  }
+
+  return $Result
+}
+
 Function Set-DropboxItemOfflineMode {
   <#
-  .VERSION 20230415
+  .VERSION 20250921
 
   .SYNOPSIS
   Sets a path to be ignored by Dropbox
@@ -1794,34 +1856,28 @@ Function Set-DropboxItemOfflineMode {
 
   [CmdletBinding()]
   param(
-    [string]$Path,
+    [Parameter(Mandatory)][string]$Path,
     # Mode can be OnlineOnly or Offline
     [Parameter(Mandatory)][ValidateSet('OnlineOnly', 'Offline')][string]$Mode  
   )
 
-  $ErrorAction = $PSBoundParameters['ErrorAction']
-  if ([string]::IsNullOrEmpty($ErrorAction)) {
-    Write-Verbose "Setting default value for ErrorAction: 'Stop'"
-    $ErrorAction = 'Stop'
+  if ($PSBoundParameters['Debug']) {
+    $DebugPreference = 'Continue' # Override default 'Enquire'
   }
 
   if (!(Test-Path $Path)) {
-    switch ($ErrorAction) {
-      'SilentlyContinue' { return }
-      'Continue' { Write-Error "Error: Path $Path not found." }
-      'Stop' { Throw "Error: Path $Path not found." }
-    }
+    Write-Error "Error: Path $Path not found." -ErrorAction Stop -Category ObjectNotFound
   }
 
   if (!(Get-Process 'dropbox' -ErrorAction SilentlyContinue)) {
-    switch ($ErrorAction) {
-      'SilentlyContinue' { return }
-      'Continue' { Write-Error 'Error: Dropbox is not running.' }
-      'Stop' { Throw 'Error: Dropbox is not running.' }
-    }
+    Write-Error 'Error: Dropbox is not running.' -ErrorAction Stop -Category ObjectNotFound
   }
-  
-  $Path = Get-RealPath $Path
+
+  if (Get-RealPath $Path -ne $Path) {
+    $RealPath = Get-RealPath $Path
+    Write-Debug "Resolving path: $Path -> $RealPath"
+    $Path = $RealPath
+  }
 
   $Modes = @{
     'OnlineOnly' = 0
@@ -1845,12 +1901,17 @@ Function Set-DropboxItemOfflineMode {
   }
   
   $verbs = $item.Verbs()
+  $VerbNames = $verbs | ForEach-Object { $_.Name }
+
+  if (!($VerbNames -like '*dropbox*')) {
+    Write-Error "Error: Item context menu doesn't contain Dropbox: $Path" -ErrorAction Stop -Category ObjectNotFound
+  }
 
   $actionVerb = $verbs | Where-Object { $_.Name -eq $VerbTexts[$Modes[$Mode]] }
   # Write-Debug "Looking for ActionVerb: $($VerbTexts[$Modes[$Mode]])"
   if ($null -eq $actionVerb) {
     if ($verbs | Where-Object { $_.Name -eq $VerbTexts[($Modes[$Mode] + 1) % 2] }) {
-      # Write-Debug "$Path is already in $Mode mode."
+      # Write-Verbose "$Path is already in $Mode mode."
       return $false
     }
     else {
@@ -1859,15 +1920,5 @@ Function Set-DropboxItemOfflineMode {
     }
   }
 
-  try {
-    $actionVerb.DoIt()
-    return $true
-  }
-  catch {
-    switch ($ErrorAction) {
-      'SilentlyContinue' { return }
-      'Continue' { Write-Error $_ }
-      'Stop' { Throw $_ }
-    }
-  }
+  $actionVerb.DoIt()
 }
